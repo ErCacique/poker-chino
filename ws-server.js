@@ -670,7 +670,11 @@ export class GameServer {
     this._send(socket, {
       type: 'error',
       code: isDomain ? error.code : 'INTERNAL',
-      message: isDomain ? error.message : 'Error interno del servidor',
+      // Temporalmente se incluye error.message también en el caso no-dominio:
+      // el acceso a los logs de Railway ha estado fallando toda la sesión, así
+      // que esta es la vía más rápida para ver la causa real la próxima vez.
+      // No se manda error.stack: eso sí podría filtrar detalle interno.
+      message: isDomain ? error.message : `Error interno del servidor: ${error.message}`,
     });
   }
 }
