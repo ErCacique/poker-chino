@@ -1,22 +1,25 @@
-/* Pineapple OFC — móvil primero.
-   Paleta: fondo azul-grafito de sala de club, cartas en hueso cálido, ámbar
-   sólo para el turno y el reloj, y rojo reservado a una única cosa: la mano
-   sucia. Nada más usa rojo, para que ese aviso no compita con nada. */
+/* Pineapple OFC — mesa de casino clásica.
+   Paleta: fieltro verde de mesa, madera oscura para los paneles, oro como
+   único acento (turno, reloj, cifras destacadas) y rojo reservado a una
+   única cosa: la mano sucia. Nada más usa rojo, para que ese aviso no
+   compita con nada. */
 
 :root {
-  --ink: #0f1b22;
-  --slate: #16242c;
-  --panel: #1e313b;
-  --line: #2b414d;
+  --ink: #0b3d2c;
+  --slate: #3a2416;
+  --panel: #2b1a10;
+  --line: rgba(212, 175, 55, 0.28);
   --bone: #f2ebdd;
   --bone-dim: #cfc6b6;
-  --amber: #e8a33d;
+  --amber: #d4af37;
+  --amber-bright: #f0c869;
   --rose: #c4566a;
   --mint: #6fcf97;
-  --text: #dfe7ea;
-  --muted: #8ba0ab;
+  --text: #ece4d3;
+  --muted: #b9ac96;
 
   --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --brand-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --body: 'Barlow', system-ui, -apple-system, sans-serif;
 
   --card-w-sm: 26px;
@@ -30,15 +33,15 @@
   --card-red: #a8324a;
 }
 
-/* Tema claro: mismos nombres de variable, invertidos. El resto de la hoja no
-   sabe ni le importa qué tema está activo. */
+/* Tema claro: mesa a la luz del día — fieltro y madera aclarados, mismo oro.
+   El resto de la hoja no sabe ni le importa qué tema está activo. */
 :root[data-theme="light"] {
-  --ink: #f4f1ea;
-  --slate: #ffffff;
-  --panel: #eee7d9;
-  --line: #d9d0bd;
-  --text: #23303a;
-  --muted: #6a7b85;
+  --ink: #efe7d2;
+  --slate: #fff8ea;
+  --panel: #f3e8cd;
+  --line: rgba(139, 94, 24, 0.28);
+  --text: #3b2a18;
+  --muted: #7a6a52;
   /* --bone se deja igual a propósito: las cartas no cambian de color con el
      tema, igual que una carta física no cambia de color con la luz de sala. */
 }
@@ -70,6 +73,7 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   background: var(--ink);
+  background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(255, 255, 255, 0.05), transparent 60%);
   color: var(--text);
   font-family: var(--body);
   -webkit-tap-highlight-color: transparent;
@@ -93,17 +97,35 @@ body {
 }
 
 .brand {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 26px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
 }
 
-.brand__mark {
+.brand__crest {
+  width: 26px;
+  height: 26px;
   color: var(--amber);
-  margin-left: 6px;
+  flex: none;
+}
+
+.brand__word { display: flex; flex-direction: column; line-height: 1; gap: 2px; }
+
+.brand__pine {
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.brand__ofc {
+  font-family: var(--brand-display);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--text);
 }
 
 .status {
@@ -151,10 +173,9 @@ body {
 .panel--waiting { align-items: center; text-align: center; }
 
 .panel h2 {
-  font-family: var(--display);
-  font-size: 22px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--brand-display);
+  font-style: italic;
+  font-size: 24px;
   margin: 0;
 }
 
@@ -210,9 +231,18 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
   text-transform: uppercase;
   padding: 13px 16px;
   min-height: 46px;
+  transition: transform 100ms ease, box-shadow 100ms ease;
 }
 
-.btn--primary { background: var(--amber); border-color: var(--amber); color: #21160a; }
+.btn--primary {
+  background: linear-gradient(180deg, var(--amber-bright), var(--amber));
+  border-color: var(--amber);
+  color: #2b1a10;
+  font-weight: 700;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+}
+
+.btn--primary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28); }
 .btn--ghost { background: transparent; }
 .btn:disabled { opacity: 0.4; }
 
@@ -483,9 +513,10 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
 }
 
 .result__panel h2 {
-  font-family: var(--display);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-family: var(--brand-display);
+  font-style: italic;
+  font-size: 22px;
+  text-align: center;
   margin: 0;
 }
 
@@ -649,9 +680,8 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
 }
 
 .profile-panel__head h2 {
-  font-family: var(--display);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-family: var(--brand-display);
+  font-style: italic;
   font-size: 20px;
   margin: 0;
 }

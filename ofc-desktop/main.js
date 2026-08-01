@@ -16,7 +16,7 @@ function createWindow() {
     minWidth: 380,
     minHeight: 600,
     title: 'Pineapple OFC',
-    backgroundColor: '#0F1B22',
+    backgroundColor: '#0b3d2c',
     webPreferences: {
       userAgent: DESKTOP_UA,
       contextIsolation: true,

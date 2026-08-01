@@ -10,6 +10,10 @@
     "PushNotifications": {
       "presentationOptions": ["alert", "sound"]
     },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0b3d2c"
+    },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
       "androidClientId": "492081621121-j1g3v239g1ppns00f5ak2qis5ln8gtqa.apps.googleusercontent.com",

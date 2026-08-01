@@ -42,7 +42,16 @@ function Header({ status, name, session, onOpenProfile }) {
   return (
     <header className="app__head">
       <h1 className="brand">
-        Pineapple<span className="brand__mark">OFC</span>
+        <svg className="brand__crest" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <path d="M24 6c-6 4-9 9-9 15a9 9 0 0 0 18 0c0-6-3-11-9-15z" stroke="currentColor" strokeWidth="2" />
+          <path d="M24 30v9" stroke="currentColor" strokeWidth="2" />
+          <path d="M18 41c2-2.5 4-3.6 6-3.6s4 1.1 6 3.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M19 6c1-2.8 3-3.8 5-3.8s4 1 5 3.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span className="brand__word">
+          <span className="brand__pine">Pineapple</span>
+          <span className="brand__ofc">OFC</span>
+        </span>
       </h1>
       {session ? (
         <button type="button" className="menu-trigger" onClick={onOpenProfile}>
