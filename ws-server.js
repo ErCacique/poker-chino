@@ -240,8 +240,18 @@ export class GameServer {
     const existing = this.sessions.get(playerId);
 
     if (existing) {
-      // Reconexión: se sustituye el socket y se conserva el asiento.
-      if (existing.socket && existing.socket !== socket) existing.socket.close();
+      // Sesión ya existe: o bien es una reconexión legítima (mismo socket tras cierre
+      // de red), o bien otro dispositivo/tab está tratando de iniciar sesión con la
+      // misma cuenta. Solo permitir si es el mismo socket (reconexión); rechazar cualquier
+      // otra cosa con un error explícito en vez de un cierre silencioso que causa reintentos.
+      if (existing.socket !== socket) {
+        const isLikelyReconnect = socket.readyState === WebSocket.OPEN && Date.now() - existing.lastSeenAt < 5000;
+        if (!isLikelyReconnect) {
+          throw new OfcError('SESSION_CONFLICT', 'Tu cuenta está activa en otro dispositivo');
+        }
+        // Si pasó menos de 5s, asumir reconexión legítima tras fluctuación de red
+        existing.socket?.close?.();
+      }
       existing.socket = socket;
       existing.background = false;
       existing.lastSeenAt = Date.now();
