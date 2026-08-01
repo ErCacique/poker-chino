@@ -26,16 +26,18 @@ import { makeVerifyToken, verifyGoogleIdToken, issueSession, verifySession } fro
 import { createPusher } from './ofc-push.js';
 import { OfcError } from './ofc-engine.js';
 import { validateUsername } from './ofc-username.js';
+import { validatePreset, validateAvatarUpload } from './ofc-avatar.js';
 
 const MAX_BODY = 16 * 1024;
+const MAX_AVATAR_BODY = 400 * 1024; // base64 de una imagen ya recortada/comprimida en el cliente
 
-function readJson(request) {
+function readJson(request, maxBody = MAX_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     request.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY) {
+      if (size > maxBody) {
         reject(new OfcError('BODY_TOO_LARGE', 'Cuerpo demasiado grande'));
         request.destroy();
         return;
@@ -233,6 +235,103 @@ export function createApp({
           limit: Math.min(Number(url.searchParams.get('limit') ?? 20), 100),
         });
         return send(response, 200, { rows }, corsOrigin);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/me/stats') {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay estadísticas');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const stats = await db.playerStats(session.playerId);
+        return send(response, 200, stats, corsOrigin);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/me/avatar') {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no se puede cambiar el avatar');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const body = await readJson(request, MAX_AVATAR_BODY);
+
+        let user;
+        if (body.kind === 'google') {
+          user = await db.setAvatar(session.playerId, { kind: 'google', url: body.googleAvatarUrl ?? null });
+        } else if (body.kind === 'preset') {
+          if (!validatePreset(body.presetId)) throw new OfcError('BAD_REQUEST', 'Avatar no válido');
+          user = await db.setAvatar(session.playerId, { kind: 'preset', url: `preset:${body.presetId}` });
+        } else if (body.kind === 'custom') {
+          const validation = validateAvatarUpload(body.dataUrl);
+          if (!validation.ok) throw new OfcError('BAD_REQUEST', validation.reason);
+          user = await db.setAvatar(session.playerId, {
+            kind: 'custom', data: validation.data, mime: validation.mime,
+          });
+        } else {
+          throw new OfcError('BAD_REQUEST', 'Tipo de avatar no reconocido');
+        }
+        return send(response, 200, user, corsOrigin);
+      }
+
+      if (request.method === 'GET' && url.pathname.startsWith('/api/avatar/')) {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay avatares');
+        const userId = url.pathname.slice('/api/avatar/'.length);
+        const blob = await db.getAvatarBlob(userId);
+        if (!blob) return send(response, 404, { error: 'NOT_FOUND' }, corsOrigin);
+        response.writeHead(200, {
+          'content-type': blob.mime,
+          'content-length': blob.data.length,
+          'cache-control': 'private, max-age=300',
+          'access-control-allow-origin': corsOrigin,
+        });
+        return response.end(blob.data);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/friends/request') {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay amigos');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const { username } = await readJson(request);
+        if (typeof username !== 'string' || !username.trim()) {
+          throw new OfcError('BAD_REQUEST', 'Falta el nombre de usuario');
+        }
+        try {
+          await db.sendFriendRequest(session.playerId, username.trim());
+        } catch (error) {
+          if (error.code === 'NOT_FOUND') throw new OfcError('NOT_FOUND', error.message);
+          if (error.code === 'BAD_REQUEST') throw new OfcError('BAD_REQUEST', error.message);
+          if (error.code === 'ALREADY_EXISTS') throw new OfcError('ALREADY_EXISTS', error.message);
+          throw error;
+        }
+        return send(response, 200, { ok: true }, corsOrigin);
+      }
+
+      if (request.method === 'POST' && /^\/api\/friends\/\d+\/respond$/.test(url.pathname)) {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay amigos');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const requestId = Number(url.pathname.split('/')[3]);
+        const { accept } = await readJson(request);
+        try {
+          await db.respondFriendRequest(requestId, session.playerId, Boolean(accept));
+        } catch (error) {
+          if (error.code === 'NOT_FOUND') throw new OfcError('NOT_FOUND', error.message);
+          throw error;
+        }
+        return send(response, 200, { ok: true }, corsOrigin);
+      }
+
+      if (request.method === 'POST' && /^\/api\/friends\/\d+\/remove$/.test(url.pathname)) {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay amigos');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const requestId = Number(url.pathname.split('/')[3]);
+        await db.removeFriendship(requestId, session.playerId);
+        return send(response, 200, { ok: true }, corsOrigin);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/friends') {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no hay amigos');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const result = await db.listFriends(session.playerId);
+        return send(response, 200, result, corsOrigin);
       }
 
       return send(response, 404, { error: 'NOT_FOUND' }, corsOrigin);

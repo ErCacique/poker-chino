@@ -77,7 +77,33 @@ export async function setUsername(token, username) {
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.message ?? 'No se pudo guardar el nombre');
-  return data; // { token, id, name, avatarUrl, usernameSet }
+  return data; // { token, playerId, name, avatarUrl, avatarKind, usernameSet }
+}
+
+/**
+ * Cambia el avatar. `payload` es una de:
+ *   { kind: 'google', googleAvatarUrl }
+ *   { kind: 'preset', presetId }
+ *   { kind: 'custom', dataUrl }  // "data:image/png;base64,..."
+ */
+export async function setAvatar(token, payload) {
+  const response = await fetch(`${API_URL}/api/me/avatar`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'No se pudo guardar el avatar');
+  return data; // { playerId, name, avatarUrl, avatarKind, usernameSet }
+}
+
+export async function fetchStats(token) {
+  const response = await fetch(`${API_URL}/api/me/stats`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'No se pudieron cargar las estadísticas');
+  return data;
 }
 
 export async function fetchLeaderboard({ days = 30, minHands = 5 } = {}) {

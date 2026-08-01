@@ -5,10 +5,15 @@ import { TableView } from './components/Table.jsx';
 import { SignIn } from './components/SignIn.jsx';
 import { ChooseUsername } from './components/ChooseUsername.jsx';
 import { Leaderboard } from './components/Leaderboard.jsx';
+import { Avatar } from './components/Avatar.jsx';
+import { ProfileMenu } from './components/ProfileMenu.jsx';
 import { useNativeBridge } from './hooks/useNativeBridge.js';
 import { useCheckUpdates } from './hooks/useCheckUpdates.js';
 import { UpdateNotification } from './components/UpdateNotification.jsx';
 import { GOOGLE_CLIENT_ID, loadSession, saveSession, clearSession } from './lib/auth.js';
+import { loadSettings, applyTheme } from './lib/settings.js';
+
+applyTheme(loadSettings().theme);
 
 const STATUS_LABEL = {
   connecting: 'Conectando',
@@ -29,13 +34,26 @@ function loadDevIdentity() {
   return { id: `p${Math.random().toString(36).slice(2, 8)}`, name: 'Invitado' };
 }
 
-function Header({ status, name }) {
+function Header({ status, name, session, onOpenProfile }) {
   return (
     <header className="app__head">
       <h1 className="brand">
         Pineapple<span className="brand__mark">OFC</span>
       </h1>
-      {name && <span className="app__name">{name}</span>}
+      {session ? (
+        <button type="button" className="menu-trigger" onClick={onOpenProfile}>
+          <Avatar
+            playerId={session.playerId}
+            name={session.name}
+            avatarUrl={session.avatarUrl}
+            avatarKind={session.avatarKind}
+            size={28}
+          />
+          <span className="app__name">{name}</span>
+        </button>
+      ) : (
+        name && <span className="app__name">{name}</span>
+      )}
       <span className={`status status--${status}`}>{STATUS_LABEL[status] ?? status}</span>
     </header>
   );
@@ -61,8 +79,15 @@ export default function App() {
 
   const game = useOfcGame(token);
   useNativeBridge(game);
+  const [profileOpen, setProfileOpen] = useState(false);
   const onSignedIn = useCallback((value) => setSession(value), []);
-  const onUsernameChosen = useCallback((value) => { saveSession(value); setSession(value); }, []);
+  const onSessionUpdate = useCallback((value) => {
+    setSession((current) => {
+      const merged = { ...current, ...value };
+      saveSession(merged);
+      return merged;
+    });
+  }, []);
   const displayName = usesGoogle ? session?.name : devIdentity.name;
 
   if (usesGoogle && !session) {
@@ -78,14 +103,26 @@ export default function App() {
     return (
       <div className="app">
         <Header status={game.status} />
-        <ChooseUsername session={session} onDone={onUsernameChosen} />
+        <ChooseUsername session={session} onDone={onSessionUpdate} />
       </div>
     );
   }
 
   return (
     <div className="app">
-      <Header status={game.status} name={displayName} />
+      <Header
+        status={game.status}
+        name={displayName}
+        session={usesGoogle ? session : null}
+        onOpenProfile={() => setProfileOpen(true)}
+      />
+      {profileOpen && usesGoogle && (
+        <ProfileMenu
+          session={session}
+          onClose={() => setProfileOpen(false)}
+          onSessionUpdate={onSessionUpdate}
+        />
+      )}
       <UpdateNotification
         update={updateAvailable}
         isInstalling={isInstalling}

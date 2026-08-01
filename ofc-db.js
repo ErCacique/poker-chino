@@ -20,11 +20,35 @@ create table if not exists users (
   name          text not null,
   avatar_url    text,
   username_set  boolean not null default false,
+  avatar_kind   text not null default 'google',
+  avatar_data   bytea,
+  avatar_mime   text,
   created_at    timestamptz not null default now(),
   last_seen_at  timestamptz not null default now()
 );
 
 alter table users add column if not exists username_set boolean not null default false;
+alter table users add column if not exists avatar_kind  text not null default 'google';
+alter table users add column if not exists avatar_data  bytea;
+alter table users add column if not exists avatar_mime  text;
+
+-- Amistades: una fila por solicitud/relación, orientada de from_user a to_user.
+-- El estado 'accepted' hace la relación bidireccional a efectos de consulta
+-- (se busca por from_user o to_user indistintamente).
+create table if not exists friendships (
+  id          bigserial primary key,
+  from_user   text not null references users (id) on delete cascade,
+  to_user     text not null references users (id) on delete cascade,
+  status      text not null default 'pending', -- pending | accepted
+  created_at  timestamptz not null default now(),
+  responded_at timestamptz,
+  check (from_user <> to_user)
+);
+
+create unique index if not exists friendships_pair_idx
+  on friendships (least(from_user, to_user), greatest(from_user, to_user));
+create index if not exists friendships_to_user_idx on friendships (to_user, status);
+create index if not exists friendships_from_user_idx on friendships (from_user, status);
 
 create table if not exists hands (
   id          bigserial primary key,
@@ -98,7 +122,7 @@ export class Database {
        on conflict (google_sub) do update
          set avatar_url = excluded.avatar_url,
              last_seen_at = now()
-       returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet"`,
+       returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet", avatar_kind as "avatarKind"`,
       [id, googleSub, name, avatarUrl],
     );
     return {
@@ -106,6 +130,7 @@ export class Database {
       name: rows[0].name,
       avatarUrl: rows[0].avatarUrl,
       usernameSet: rows[0].usernameSet,
+      avatarKind: rows[0].avatarKind,
     };
   }
 
@@ -126,7 +151,7 @@ export class Database {
     const { rows } = await this.pool.query(
       `update users set name = $1, username_set = true
         where id = $2
-      returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet"`,
+      returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet", avatar_kind as "avatarKind"`,
       [username, userId],
     );
     if (!rows.length) {
@@ -139,6 +164,156 @@ export class Database {
       name: rows[0].name,
       avatarUrl: rows[0].avatarUrl,
       usernameSet: rows[0].usernameSet,
+      avatarKind: rows[0].avatarKind,
+    };
+  }
+
+  /**
+   * Fija el avatar del jugador. Tres modalidades:
+   *  - 'google': vuelve a usar la foto de su cuenta de Google (avatarUrl).
+   *  - 'preset': un icono predefinido; sólo guarda el id, sin bytes (avatarUrl = 'preset:<id>').
+   *  - 'custom': imagen subida por el jugador, guardada en la propia fila (bytea).
+   *    Va aparte de avatar_url para no mandar binarios en cada consulta de lista/ranking.
+   */
+  async setAvatar(userId, { kind, url = null, data = null, mime = null }) {
+    const { rows } = await this.pool.query(
+      `update users set
+         avatar_kind = $2,
+         avatar_url  = $3,
+         avatar_data = $4,
+         avatar_mime = $5
+       where id = $1
+       returning id, name, avatar_url as "avatarUrl", avatar_kind as "avatarKind", username_set as "usernameSet"`,
+      [userId, kind, url, data, mime],
+    );
+    if (!rows.length) {
+      const err = new Error('Usuario no encontrado');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+    return {
+      playerId: rows[0].id,
+      name: rows[0].name,
+      avatarUrl: rows[0].avatarUrl,
+      avatarKind: rows[0].avatarKind,
+      usernameSet: rows[0].usernameSet,
+    };
+  }
+
+  /** Bytes del avatar subido por el jugador, para servir GET /api/avatar/:id. */
+  async getAvatarBlob(userId) {
+    const { rows } = await this.pool.query(
+      'select avatar_data as data, avatar_mime as mime from users where id = $1 and avatar_kind = $2',
+      [userId, 'custom'],
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Estadísticas propias del jugador: todo el histórico, sin ventana de
+   * tiempo (a diferencia del ranking, que sí acota por días).
+   */
+  async playerStats(userId) {
+    const { rows } = await this.pool.query(
+      `select count(*)::int                                                        as hands,
+              coalesce(sum(hp.delta), 0)::int                                       as points,
+              coalesce(round(avg(hp.delta)::numeric, 2), 0)::float8                 as "pointsPerHand",
+              coalesce(round(avg(hp.royalties)::numeric, 2), 0)::float8             as "royaltiesPerHand",
+              coalesce(round(100 * avg(case when hp.foul then 1 else 0 end)::numeric, 1), 0)::float8        as "foulPct",
+              coalesce(round(100 * avg(case when hp.fantasyland then 1 else 0 end)::numeric, 1), 0)::float8 as "fantasylandPct"
+         from hand_players hp
+        where hp.user_id = $1`,
+      [userId],
+    );
+    return rows[0];
+  }
+
+  /**
+   * Envía una solicitud de amistad por username exacto (sin distinguir
+   * mayúsculas). El índice único sobre el par ordenado evita duplicados en
+   * cualquier dirección: si ya existe una fila entre A y B, esto falla.
+   */
+  async sendFriendRequest(fromUserId, toUsername) {
+    const { rows: target } = await this.pool.query(
+      'select id from users where lower(name) = lower($1)',
+      [toUsername],
+    );
+    if (!target.length) {
+      const err = new Error('No existe ningún jugador con ese nombre');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+    const toUserId = target[0].id;
+    if (toUserId === fromUserId) {
+      const err = new Error('No puedes enviarte una solicitud a ti mismo');
+      err.code = 'BAD_REQUEST';
+      throw err;
+    }
+    try {
+      const { rows } = await this.pool.query(
+        `insert into friendships (from_user, to_user, status)
+         values ($1, $2, 'pending')
+         returning id`,
+        [fromUserId, toUserId],
+      );
+      return rows[0].id;
+    } catch (error) {
+      if (error.code === '23505') { // unique_violation: ya existe la relación
+        const err = new Error('Ya existe una solicitud o amistad con ese jugador');
+        err.code = 'ALREADY_EXISTS';
+        throw err;
+      }
+      throw error;
+    }
+  }
+
+  /** Acepta o rechaza una solicitud recibida. Rechazar borra la fila: se puede volver a pedir. */
+  async respondFriendRequest(requestId, userId, accept) {
+    if (!accept) {
+      await this.pool.query(
+        'delete from friendships where id = $1 and to_user = $2 and status = $3',
+        [requestId, userId, 'pending'],
+      );
+      return null;
+    }
+    const { rows } = await this.pool.query(
+      `update friendships set status = 'accepted', responded_at = now()
+        where id = $1 and to_user = $2 and status = 'pending'
+      returning id`,
+      [requestId, userId],
+    );
+    if (!rows.length) {
+      const err = new Error('Solicitud no encontrada');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+    return rows[0].id;
+  }
+
+  /** Elimina una amistad ya aceptada, o cancela una solicitud propia pendiente. */
+  async removeFriendship(requestId, userId) {
+    await this.pool.query(
+      'delete from friendships where id = $1 and (from_user = $2 or to_user = $2)',
+      [requestId, userId],
+    );
+  }
+
+  /** Amigos aceptados + solicitudes entrantes/salientes pendientes. */
+  async listFriends(userId) {
+    const { rows } = await this.pool.query(
+      `select f.id, f.status, f.from_user as "fromUser", f.to_user as "toUser",
+              case when f.from_user = $1 then f.to_user else f.from_user end as "otherId",
+              u.name, u.avatar_url as "avatarUrl", u.avatar_kind as "avatarKind"
+         from friendships f
+         join users u on u.id = case when f.from_user = $1 then f.to_user else f.from_user end
+        where f.from_user = $1 or f.to_user = $1
+     order by f.created_at desc`,
+      [userId],
+    );
+    return {
+      friends: rows.filter((r) => r.status === 'accepted'),
+      incoming: rows.filter((r) => r.status === 'pending' && r.toUser === userId),
+      outgoing: rows.filter((r) => r.status === 'pending' && r.fromUser === userId),
     };
   }
 
@@ -191,6 +366,7 @@ export class Database {
       `select u.id,
               u.name,
               u.avatar_url                                            as "avatarUrl",
+              u.avatar_kind                                           as "avatarKind",
               count(*)::int                                           as hands,
               sum(hp.delta)::int                                      as points,
               round(avg(hp.delta)::numeric, 2)::float8                as "pointsPerHand",
@@ -201,7 +377,7 @@ export class Database {
          join hands h on h.id = hp.hand_id
          join users u on u.id = hp.user_id
         where h.played_at >= now() - ($1 || ' days')::interval
-     group by u.id, u.name, u.avatar_url
+     group by u.id, u.name, u.avatar_url, u.avatar_kind
        having count(*) >= $2
      order by "pointsPerHand" desc, hands desc
         limit $3`,
