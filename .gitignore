@@ -1,7 +1,13 @@
 node_modules/
-ofc-client/
-ofc-desktop/
+# ofc-client/ y ofc-desktop/ SÍ van en git: Railway construye la web desde
+# ofc-client/ y necesita su código y su package.json. Sólo se excluye lo
+# generado o local de cada máquina.
+ofc-client/dist/
+ofc-client/android/
+ofc-client/ios/
+ofc-desktop/release/
 .env
+.env.*
 *.log
 _staging/
 .claude/

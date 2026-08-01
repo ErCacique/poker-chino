@@ -1,0 +1,22 @@
+{
+  "appId": "com.pineappleofc.app",
+  "appName": "Pineapple OFC",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "overrideUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["alert", "sound"]
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "androidClientId": "492081621121-j1g3v239g1ppns00f5ak2qis5ln8gtqa.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": false
+    }
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
