@@ -17,6 +17,7 @@
 
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
+import fs from 'node:fs/promises';
 import { GameServer } from './ws-server.js';
 import { MemoryStore, RedisStore } from './ofc-store.js';
 import { Database } from './ofc-db.js';
@@ -123,6 +124,49 @@ export function createApp({
 
       if (request.method === 'GET' && url.pathname === '/health') {
         return send(response, 200, { ok: true, tables: game.tables.size }, corsOrigin);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/version') {
+        try {
+          const versionFile = await fs.readFile('./version.json', 'utf8');
+          const versionData = JSON.parse(versionFile);
+          const serverUrl = request.headers.host?.includes('localhost')
+            ? 'http://localhost:8080'
+            : `https://${request.headers.host}`;
+          return send(response, 200, {
+            ...versionData,
+            downloads: {
+              android: `${serverUrl}/updates/PineappleOFC-Android-Debug-v${versionData.version}.apk`,
+              windows: `${serverUrl}/updates/PineappleOFC-Windows-v${versionData.version}.zip`,
+            },
+          }, corsOrigin);
+        } catch {
+          throw new OfcError('CONFIG', 'No se pudo leer la versión');
+        }
+      }
+
+      if (request.method === 'GET' && url.pathname.startsWith('/updates/')) {
+        try {
+          const filename = url.pathname.slice('/updates/'.length);
+          // Sanitizar: solo permitir archivos con nombres esperados
+          if (!filename.match(/^PineappleOFC-(Android|Windows)-[^/]+\.(apk|zip)$/)) {
+            throw new OfcError('BAD_REQUEST', 'Archivo no válido');
+          }
+          const filePath = `./updates/${filename}`;
+          const data = await fs.readFile(filePath);
+          response.writeHead(200, {
+            'content-type': filename.endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/zip',
+            'content-length': data.length,
+            'content-disposition': `attachment; filename="${filename}"`,
+            'access-control-allow-origin': corsOrigin,
+          });
+          response.end(data);
+        } catch (err) {
+          if (err.code === 'ENOENT') {
+            return send(response, 404, { error: 'NOT_FOUND', message: 'Archivo no disponible' }, corsOrigin);
+          }
+          throw err;
+        }
       }
 
       if (request.method === 'POST' && url.pathname === '/auth/google') {

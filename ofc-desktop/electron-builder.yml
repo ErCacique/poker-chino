@@ -1,0 +1,17 @@
+appId: com.ofc.pineapple
+productName: Pineapple OFC
+directories:
+  buildResources: resources
+files:
+  - main.js
+  - preload.js
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+publish:
+  provider: generic
+  url: https://ofc-server-production-eada.up.railway.app/updates/
