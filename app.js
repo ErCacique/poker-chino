@@ -128,8 +128,19 @@ export function createApp({
 
       if (request.method === 'GET' && url.pathname === '/api/version') {
         try {
-          const versionFile = await fs.readFile('./version.json', 'utf8');
-          const versionData = JSON.parse(versionFile);
+          let versionData;
+          // Intentar leer from version.json, luego fallback a env vars
+          try {
+            const versionFile = await fs.readFile('./version.json', 'utf8');
+            versionData = JSON.parse(versionFile);
+          } catch {
+            // Fallback a variables de entorno
+            versionData = {
+              version: process.env.APP_VERSION || '1.2.0',
+              releaseDate: process.env.RELEASE_DATE || '2026-08-01',
+              description: process.env.VERSION_DESCRIPTION || 'Pineapple OFC',
+            };
+          }
           const serverUrl = request.headers.host?.includes('localhost')
             ? 'http://localhost:8080'
             : `https://${request.headers.host}`;
