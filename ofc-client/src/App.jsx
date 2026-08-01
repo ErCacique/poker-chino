@@ -11,9 +11,13 @@ import { useNativeBridge } from './hooks/useNativeBridge.js';
 import { useCheckUpdates } from './hooks/useCheckUpdates.js';
 import { UpdateNotification } from './components/UpdateNotification.jsx';
 import { GOOGLE_CLIENT_ID, loadSession, saveSession, clearSession } from './lib/auth.js';
-import { loadSettings, applyTheme } from './lib/settings.js';
+import { loadSettings, applyTheme, applyDeck } from './lib/settings.js';
 
-applyTheme(loadSettings().theme);
+{
+  const boot = loadSettings();
+  applyTheme(boot.theme);
+  applyDeck(boot.deck);
+}
 
 const STATUS_LABEL = {
   connecting: 'Conectando',
@@ -151,15 +155,8 @@ export default function App() {
           <Lobby
             game={game}
             name={displayName ?? ''}
-            onChangeName={(value) => {
-              if (usesGoogle) {
-                const updated = { ...session, name: value };
-                setSession(updated);
-                saveSession(updated);
-              } else {
-                setDevIdentity((current) => ({ ...current, name: value }));
-              }
-            }}
+            nameEditable={!usesGoogle}
+            onChangeName={(value) => setDevIdentity((current) => ({ ...current, name: value }))}
           />
           <Leaderboard />
         </>

@@ -23,6 +23,11 @@
   --card-w-md: 38px;
   --card-w-lg: 56px;
   --radius: 6px;
+
+  /* Baraja: separado de --bone/--text para poder ofrecer variantes de
+     color de carta (data-deck) independientes del tema claro/oscuro. */
+  --card-ink: #16242c;
+  --card-red: #a8324a;
 }
 
 /* Tema claro: mismos nombres de variable, invertidos. El resto de la hoja no
@@ -36,6 +41,26 @@
   --muted: #6a7b85;
   /* --bone se deja igual a propósito: las cartas no cambian de color con el
      tema, igual que una carta física no cambia de color con la luz de sala. */
+}
+
+/* Estilos de baraja: sólo tocan el color de la carta, nunca el del resto de
+   la interfaz — por eso van en variables separadas de --bone/--text. */
+:root[data-deck="noir"] {
+  --bone: #1c1c1c;
+  --card-ink: #f2ebdd;
+  --card-red: #e0546e;
+}
+
+:root[data-deck="royal"] {
+  --bone: #16243d;
+  --card-ink: #f2ebdd;
+  --card-red: #e8a33d;
+}
+
+:root[data-deck="mint"] {
+  --bone: #eaf5ec;
+  --card-ink: #1f3a28;
+  --card-red: #b23a52;
 }
 
 * { box-sizing: border-box; }
@@ -358,7 +383,7 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
   font-family: var(--display);
   font-weight: 700;
   line-height: 1;
-  color: #16242c;
+  color: var(--card-ink);
   user-select: none;
   touch-action: none;
 }
@@ -367,7 +392,7 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
 .card--md { width: var(--card-w-md); height: calc(var(--card-w-md) * 1.42); font-size: 17px; }
 .card--lg { width: var(--card-w-lg); height: calc(var(--card-w-lg) * 1.42); font-size: 24px; }
 
-.card--red { color: #a8324a; }
+.card--red { color: var(--card-red); }
 .card--pending { box-shadow: inset 0 0 0 2px var(--amber); }
 .card--spent { opacity: 0.28; }
 .card--ghost { opacity: 0.2; }
@@ -775,3 +800,49 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
 
 .toggle.is-on { background: var(--amber); }
 .toggle.is-on::after { transform: translateX(18px); background: #21160a; }
+
+/* ── Selector de baraja ── */
+
+.deck-picker { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.deck-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.deck-swatch__card {
+  width: 34px;
+  height: 48px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  border: 2px solid var(--line);
+  background: var(--bone);
+  color: var(--card-ink);
+}
+
+.deck-swatch.is-selected .deck-swatch__card { border-color: var(--amber); }
+
+.deck-swatch__label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Valores explícitos, no heredados de --bone: el swatch debe mostrar SU
+   color aunque la baraja activa ahora mismo sea otra distinta. */
+.deck-swatch[data-deck="classic"] .deck-swatch__card { background: #f2ebdd; color: #16242c; }
+.deck-swatch[data-deck="noir"] .deck-swatch__card { background: #1c1c1c; color: #f2ebdd; }
+.deck-swatch[data-deck="royal"] .deck-swatch__card { background: #16243d; color: #f2ebdd; }
+.deck-swatch[data-deck="mint"] .deck-swatch__card { background: #eaf5ec; color: #1f3a28; }

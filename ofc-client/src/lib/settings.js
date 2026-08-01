@@ -2,7 +2,14 @@
 
 const KEY = 'ofc.settings';
 
-const DEFAULTS = { theme: 'dark', sound: true };
+export const DECKS = [
+  { id: 'classic', label: 'Clásica' },
+  { id: 'noir', label: 'Noir' },
+  { id: 'royal', label: 'Royal' },
+  { id: 'mint', label: 'Menta' },
+];
+
+const DEFAULTS = { theme: 'dark', sound: true, deck: 'classic' };
 
 export function loadSettings() {
   try {
@@ -16,8 +23,13 @@ export function loadSettings() {
 export function saveSettings(settings) {
   localStorage.setItem(KEY, JSON.stringify(settings));
   applyTheme(settings.theme);
+  applyDeck(settings.deck);
 }
 
 export function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+}
+
+export function applyDeck(deck) {
+  document.documentElement.dataset.deck = deck;
 }

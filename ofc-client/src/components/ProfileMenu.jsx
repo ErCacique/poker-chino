@@ -4,7 +4,7 @@ import { setUsername, setAvatar, fetchStats } from '../lib/auth.js';
 import {
   fetchFriends, sendFriendRequest, respondFriendRequest, removeFriendship,
 } from '../lib/friends.js';
-import { loadSettings, saveSettings, applyTheme } from '../lib/settings.js';
+import { loadSettings, saveSettings, applyTheme, applyDeck, DECKS } from '../lib/settings.js';
 
 const TABS = ['Perfil', 'Estadísticas', 'Amigos', 'Ajustes'];
 
@@ -311,7 +311,7 @@ function FriendsTab({ session }) {
 function SettingsTab() {
   const [settings, setSettings] = useState(loadSettings);
 
-  useEffect(() => { applyTheme(settings.theme); }, []);
+  useEffect(() => { applyTheme(settings.theme); applyDeck(settings.deck); }, []);
 
   function update(patch) {
     const next = { ...settings, ...patch };
@@ -338,6 +338,24 @@ function SettingsTab() {
           onClick={() => update({ sound: !settings.sound })}
           aria-label="Alternar sonido"
         />
+      </div>
+
+      <div className="field">
+        <span>Estilo de baraja</span>
+        <div className="deck-picker">
+          {DECKS.map((deck) => (
+            <button
+              key={deck.id}
+              type="button"
+              className={`deck-swatch ${settings.deck === deck.id ? 'is-selected' : ''}`}
+              data-deck={deck.id}
+              onClick={() => update({ deck: deck.id })}
+            >
+              <span className="deck-swatch__card" aria-hidden="true">A♠</span>
+              <span className="deck-swatch__label">{deck.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </>
   );
