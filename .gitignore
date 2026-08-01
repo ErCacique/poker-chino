@@ -4,11 +4,8 @@ ofc-desktop/
 .env
 *.log
 _staging/
-*.zip
-*.jks
-*.apk
-*.aab
 .claude/
-ENTREGA-FINAL/
-keystore-BACKUP-ESTO/
 historial-conversacion/
+# Instaladores y credenciales de firma: binarios + contraseña en texto
+# plano, nunca deben entrar en git.
+instaladores/
