@@ -19,9 +19,12 @@ create table if not exists users (
   google_sub    text unique not null,
   name          text not null,
   avatar_url    text,
+  username_set  boolean not null default false,
   created_at    timestamptz not null default now(),
   last_seen_at  timestamptz not null default now()
 );
+
+alter table users add column if not exists username_set boolean not null default false;
 
 create table if not exists hands (
   id          bigserial primary key,
@@ -82,6 +85,10 @@ export class Database {
    * Alta o actualización del usuario tras validar el token de Google.
    * El identificador interno deriva del `sub`, que es el único dato de Google
    * que no cambia: el correo y el nombre sí pueden cambiar.
+   *
+   * El `name` sólo se fija en el alta inicial (con el nombre de Google como
+   * relleno provisional) y nunca se vuelve a pisar: en cuanto el jugador elige
+   * su propio username, un login posterior de Google no debe machacarlo.
    */
   async upsertUser({ googleSub, name, avatarUrl = null }) {
     const id = `g_${googleSub}`;
@@ -89,13 +96,50 @@ export class Database {
       `insert into users (id, google_sub, name, avatar_url)
        values ($1, $2, $3, $4)
        on conflict (google_sub) do update
-         set name = excluded.name,
-             avatar_url = excluded.avatar_url,
+         set avatar_url = excluded.avatar_url,
              last_seen_at = now()
-       returning id, name, avatar_url`,
+       returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet"`,
       [id, googleSub, name, avatarUrl],
     );
-    return { playerId: rows[0].id, name: rows[0].name, avatarUrl: rows[0].avatar_url };
+    return {
+      playerId: rows[0].id,
+      name: rows[0].name,
+      avatarUrl: rows[0].avatarUrl,
+      usernameSet: rows[0].usernameSet,
+    };
+  }
+
+  /**
+   * Fija el username elegido por el jugador. Único (sin distinguir mayúsculas)
+   * para que no haya dos jugadores indistinguibles en la mesa o el ranking.
+   */
+  async setUsername(userId, username) {
+    const { rows: clash } = await this.pool.query(
+      'select id from users where lower(name) = lower($1) and id <> $2',
+      [username, userId],
+    );
+    if (clash.length) {
+      const err = new Error('Ese nombre ya está en uso');
+      err.code = 'USERNAME_TAKEN';
+      throw err;
+    }
+    const { rows } = await this.pool.query(
+      `update users set name = $1, username_set = true
+        where id = $2
+      returning id, name, avatar_url as "avatarUrl", username_set as "usernameSet"`,
+      [username, userId],
+    );
+    if (!rows.length) {
+      const err = new Error('Usuario no encontrado');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+    return {
+      playerId: rows[0].id,
+      name: rows[0].name,
+      avatarUrl: rows[0].avatarUrl,
+      usernameSet: rows[0].usernameSet,
+    };
   }
 
   /**

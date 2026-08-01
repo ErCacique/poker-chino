@@ -3,6 +3,7 @@ import { useOfcGame } from './hooks/useOfcGame.js';
 import { Lobby } from './components/Lobby.jsx';
 import { TableView } from './components/Table.jsx';
 import { SignIn } from './components/SignIn.jsx';
+import { ChooseUsername } from './components/ChooseUsername.jsx';
 import { Leaderboard } from './components/Leaderboard.jsx';
 import { useNativeBridge } from './hooks/useNativeBridge.js';
 import { useCheckUpdates } from './hooks/useCheckUpdates.js';
@@ -50,13 +51,18 @@ export default function App() {
     if (!usesGoogle) sessionStorage.setItem('ofc.identity', JSON.stringify(devIdentity));
   }, [devIdentity, usesGoogle]);
 
+  // Sin username propio no se conecta al servidor de juego: entrar a una mesa
+  // con el nombre de Google todavía puesto dejaría a otros jugadores viéndolo
+  // antes de que el jugador confirme el que realmente quiere usar.
+  const needsUsername = usesGoogle && session && !session.usernameSet;
   const token = usesGoogle
-    ? session?.token ?? null
+    ? (session && !needsUsername ? session.token ?? null : null)
     : `dev:${devIdentity.id}:${devIdentity.name || devIdentity.id}`;
 
   const game = useOfcGame(token);
   useNativeBridge(game);
   const onSignedIn = useCallback((value) => setSession(value), []);
+  const onUsernameChosen = useCallback((value) => { saveSession(value); setSession(value); }, []);
   const displayName = usesGoogle ? session?.name : devIdentity.name;
 
   if (usesGoogle && !session) {
@@ -64,6 +70,15 @@ export default function App() {
       <div className="app">
         <Header status={game.status} />
         <SignIn onSignedIn={onSignedIn} />
+      </div>
+    );
+  }
+
+  if (needsUsername) {
+    return (
+      <div className="app">
+        <Header status={game.status} />
+        <ChooseUsername session={session} onDone={onUsernameChosen} />
       </div>
     );
   }

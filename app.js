@@ -25,6 +25,7 @@ import { Database } from './ofc-db.js';
 import { makeVerifyToken, verifyGoogleIdToken, issueSession, verifySession } from './ofc-auth.js';
 import { createPusher } from './ofc-push.js';
 import { OfcError } from './ofc-engine.js';
+import { validateUsername } from './ofc-username.js';
 
 const MAX_BODY = 16 * 1024;
 
@@ -192,6 +193,24 @@ export function createApp({
         const profile = await verifyGoogleIdToken(idToken, { clientId: googleClientId });
         if (!db) throw new OfcError('CONFIG', 'Sin base de datos no se pueden crear cuentas');
         const user = await db.upsertUser(profile);
+        const token = await issueSession(user, { secret });
+        return send(response, 200, { token, ...user }, corsOrigin);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/me/username') {
+        if (!db) throw new OfcError('CONFIG', 'Sin base de datos no se pueden crear cuentas');
+        const header = request.headers.authorization ?? '';
+        const session = await verifySession(header.replace(/^Bearer /i, ''), { secret });
+        const { username: raw } = await readJson(request);
+        const validation = validateUsername(raw);
+        if (!validation.ok) throw new OfcError('BAD_REQUEST', validation.reason);
+        let user;
+        try {
+          user = await db.setUsername(session.playerId, validation.username);
+        } catch (error) {
+          if (error.code === 'USERNAME_TAKEN') throw new OfcError('USERNAME_TAKEN', error.message);
+          throw error;
+        }
         const token = await issueSession(user, { secret });
         return send(response, 200, { token, ...user }, corsOrigin);
       }
