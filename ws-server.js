@@ -29,7 +29,7 @@
  *   { type:'error', code, message }
  */
 
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { OfcError } from './ofc-engine.js';
 import { Table, PHASE } from './ofc-table.js';
 import { MemoryStore } from './ofc-store.js';
@@ -670,11 +670,7 @@ export class GameServer {
     this._send(socket, {
       type: 'error',
       code: isDomain ? error.code : 'INTERNAL',
-      // Temporalmente se incluye error.message también en el caso no-dominio:
-      // el acceso a los logs de Railway ha estado fallando toda la sesión, así
-      // que esta es la vía más rápida para ver la causa real la próxima vez.
-      // No se manda error.stack: eso sí podría filtrar detalle interno.
-      message: isDomain ? error.message : `Error interno del servidor: ${error.message}`,
+      message: isDomain ? error.message : 'Error interno del servidor',
     });
   }
 }

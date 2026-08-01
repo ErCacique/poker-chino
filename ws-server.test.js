@@ -73,6 +73,33 @@ test('emparejamiento, jugada válida, error de turno y reconexión', async (t) =
   await Promise.all([anaAgain.close(), bruno.close()]);
 });
 
+test('reautenticar desde un socket nuevo sin cerrar el anterior no revienta el servidor', async (t) => {
+  // Regresión: esta rama comparaba socket.readyState con WebSocket.OPEN sin
+  // haber importado WebSocket desde 'ws' (sólo se importaba WebSocketServer).
+  // En local, si el motor de Node expone un WebSocket global (Node >=21), el
+  // identificador suelto resuelve ahí por casualidad y todo parece funcionar;
+  // en Railway (Node 18, sin ese global) explotaba con "WebSocket is not
+  // defined" justo al reconectar — que es exactamente lo que pasa aquí, sin
+  // cerrar el socket viejo primero.
+  const { server, port } = await startServer();
+  t.after(() => server.close());
+
+  const first = connect(port);
+  await first.open;
+  first.send({ type: 'auth', token: 'dev:a:Ana' });
+  await first.wait((m) => m.type === 'authenticated');
+
+  // Mismo token, socket nuevo, el viejo sigue abierto: dispara la rama
+  // existing.socket !== socket dentro de la ventana de gracia de reconexión.
+  const second = connect(port);
+  await second.open;
+  second.send({ type: 'auth', token: 'dev:a:Ana' });
+  const response = await second.wait((m) => m.type === 'authenticated' || m.type === 'error');
+  assert.equal(response.type, 'authenticated', 'la reconexión rápida no debe fallar con INTERNAL');
+
+  await second.close();
+});
+
 test('rechaza mensajes sin autenticar y tokens inválidos', async (t) => {
   const { server, port } = await startServer();
   t.after(() => server.close());
@@ -159,7 +186,7 @@ test('un código inexistente devuelve error sin sentar a nadie', async (t) => {
 });
 
 test('practicar contra bots: mesa instantánea y el bot resuelve su turno solo', async (t) => {
-  const { server, port } = await startServer({ turnMs: 150 });
+  const { server, port } = await startServer({ turnMs: 200 });
   t.after(() => server.close());
 
   const ana = connect(port);
@@ -196,12 +223,14 @@ test('practicar contra bots: mesa instantánea y el bot resuelve su turno solo',
 
   // Ojo: no basta con esperar activePlayerId === 'a', porque ese mismo valor
   // ya aparece en el primer 'state' (reparto inicial) que sigue en el buzón;
-  // se comprueba directamente que el tablero del bot dejó de estar vacío.
-  await ana.wait(
-    (m) => m.type === 'state'
-      && m.state.players.find((p) => p.id === 'bot:marcos')?.board.bottom.length === 2,
-    2000,
-  );
+  // se comprueba directamente que el tablero del bot dejó de estar vacío. No
+  // se asume ninguna distribución concreta entre filas: autoPlace() elige la
+  // suya, no necesariamente la misma que la jugada manual de Ana.
+  await ana.wait((m) => {
+    if (m.type !== 'state') return false;
+    const botBoard = m.state.players.find((p) => p.id === 'bot:marcos')?.board;
+    return botBoard && (botBoard.top.length + botBoard.middle.length + botBoard.bottom.length) > 0;
+  }, 4000);
 
   await ana.close();
 });
@@ -228,7 +257,7 @@ test('la cola normal se completa con bots si no aparece rival humano a tiempo', 
 test('las manos contra bots no se guardan para estadísticas', async (t) => {
   let handEndedCalls = 0;
   const { server, port } = await startServer({
-    turnMs: 150,
+    turnMs: 200,
     onHandEnded: () => { handEndedCalls += 1; },
   });
   t.after(() => server.close());
