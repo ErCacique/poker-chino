@@ -18,6 +18,7 @@
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { GameServer } from './ws-server.js';
 import { MemoryStore, RedisStore } from './ofc-store.js';
 import { Database } from './ofc-db.js';
@@ -157,27 +158,33 @@ export function createApp({
       }
 
       if (request.method === 'GET' && url.pathname.startsWith('/updates/')) {
-        try {
-          const filename = url.pathname.slice('/updates/'.length);
-          // Sanitizar: solo permitir archivos con nombres esperados
-          if (!filename.match(/^PineappleOFC-(Android|Windows)-[^/]+\.(apk|zip)$/)) {
-            throw new OfcError('BAD_REQUEST', 'Archivo no válido');
-          }
-          const filePath = `./updates/${filename}`;
-          const data = await fs.readFile(filePath);
-          response.writeHead(200, {
-            'content-type': filename.endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/zip',
-            'content-length': data.length,
-            'content-disposition': `attachment; filename="${filename}"`,
-            'access-control-allow-origin': corsOrigin,
-          });
-          response.end(data);
-        } catch (err) {
-          if (err.code === 'ENOENT') {
-            return send(response, 404, { error: 'NOT_FOUND', message: 'Archivo no disponible' }, corsOrigin);
-          }
-          throw err;
+        const filename = url.pathname.slice('/updates/'.length);
+        // Sanitizar: solo permitir archivos con nombres esperados
+        if (!filename.match(/^PineappleOFC-(Android|Windows)-[^/]+\.(apk|zip)$/)) {
+          return send(response, 400, { error: 'BAD_REQUEST', message: 'Archivo no válido' }, corsOrigin);
         }
+        const filePath = `./updates/${filename}`;
+        let stat;
+        try {
+          stat = await fs.stat(filePath);
+        } catch {
+          return send(response, 404, { error: 'NOT_FOUND', message: 'Archivo no disponible' }, corsOrigin);
+        }
+        response.writeHead(200, {
+          'content-type': filename.endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/zip',
+          'content-length': stat.size,
+          'content-disposition': `attachment; filename="${filename}"`,
+          'access-control-allow-origin': corsOrigin,
+        });
+        // Streaming: un readFile cargaría el ZIP de Windows (~80MB) entero en
+        // memoria y provocaba 502 / respuestas truncadas en Railway.
+        await new Promise((resolve, reject) => {
+          const stream = createReadStream(filePath);
+          stream.on('error', reject);
+          response.on('close', resolve);
+          stream.pipe(response).on('finish', resolve);
+        });
+        return;
       }
 
       if (request.method === 'POST' && url.pathname === '/auth/google') {
