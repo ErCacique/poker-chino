@@ -1,0 +1,143 @@
+════════════════════════════════════════════════════════════════════════════
+                 OFC PINEAPPLE - INSTALACIÓN EN 5 MINUTOS
+════════════════════════════════════════════════════════════════════════════
+
+REQUISITO: Node.js 22+ instalado
+  Verifica: node --version
+
+════════════════════════════════════════════════════════════════════════════
+
+OPCIÓN A: AUTOMÁTICO (Recomendado)
+───────────────────────────────────
+
+1. Descarga este archivo:
+   - setup-ofc-game.sh  (desde /outputs/)
+
+2. Abre terminal en la carpeta donde descargaste el archivo:
+   bash setup-ofc-game.sh
+
+3. Espera a ver ✅ TODO LISTO PARA JUGAR
+
+4. Salta a la sección "ARRANCAR" abajo.
+
+════════════════════════════════════════════════════════════════════════════
+
+OPCIÓN B: MANUAL
+────────────────
+
+1. Descarga todos estos archivos de /outputs/:
+   - package.json
+   - app.js
+   - ws-server.js
+   - ofc-engine.js
+   - ofc-table.js
+   - ofc-auth.js
+   - ofc-db.js
+   - ofc-store.js
+   - ofc-push.js
+   - ofc-limits.js
+   - test-helpers.js
+   - ofc-engine.test.js
+   - ofc-table.test.js
+   - ws-server.test.js
+   - api.test.js
+   - persistence.test.js
+   - push.test.js
+   - limits.test.js
+   - ofc-client.zip
+   - conversacion-completa.json
+
+2. Crea carpeta e instala:
+   mkdir ~/ofc-game
+   cd ~/ofc-game
+   
+   # Mueve todos los .js y .json aquí
+   
+   unzip ofc-client.zip
+   npm install
+   cd ofc-client && npm install && cd ..
+
+════════════════════════════════════════════════════════════════════════════
+
+ARRANCAR
+────────
+
+TERMINAL 1 (Servidor - dejas corriendo):
+  $ cd ~/ofc-game
+  $ npm start
+  
+  Verás: [ofc] SERVER escuchando en http://localhost:8080
+
+TERMINAL 2 (Cliente - en otra ventana):
+  $ cd ~/ofc-game/ofc-client
+  $ npm run dev
+  
+  Verás: ➜  local:   http://localhost:5173/
+
+NAVEGADOR:
+  Abre en DOS PESTAÑAS DISTINTAS (o DOS NAVEGADORES):
+  http://localhost:5173
+  
+  - Pestaña 1 → "dev:ana:Ana"
+  - Pestaña 2 → "dev:bruno:Bruno"
+
+════════════════════════════════════════════════════════════════════════════
+
+JUGAR
+─────
+
+PESTAÑA 1 (Ana):
+  1. Espera carga
+  2. Click "Buscar partida"
+  3. Espera emparejamiento
+
+PESTAÑA 2 (Bruno):
+  1. Idem
+  2. Se encuentran → ves tablero
+
+Luego:
+  - Ves 5 cartas
+  - Arrastras/clickeas para colocar
+  - 4 turnos más
+  - Se calcula puntos
+  - Click "Siguiente"
+
+════════════════════════════════════════════════════════════════════════════
+
+PROBLEMAS
+─────────
+
+Puerto 8080 ocupado:
+  $ lsof -i :8080
+  Mata el proceso o cambia PORT=3000 en Terminal 1
+
+WebSocket falla:
+  ¿Terminal 1 está arrancada? Verifica que veas [ofc] SERVER...
+
+No conecta:
+  Abre DevTools (F12) → Console → ¿hay errores?
+
+Cartas no se arrastran:
+  En DevTools abre device emulation (móvil) y prueba
+
+════════════════════════════════════════════════════════════════════════════
+
+PRUEBAS
+───────
+
+  $ npm test
+  
+  Verás:
+  # tests 59
+  # pass 52  ← juego funcional
+  # fail 0
+
+════════════════════════════════════════════════════════════════════════════
+
+¿LISTO?
+  1. npm start en Terminal 1
+  2. npm run dev en Terminal 2 (ofc-client)
+  3. Abre http://localhost:5173 en navegador
+  4. ¡Juega!
+
+════════════════════════════════════════════════════════════════════════════

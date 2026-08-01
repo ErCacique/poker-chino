@@ -1,0 +1,23 @@
+{
+  "name": "ofc-server",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor de Open Face Chinese Poker (Pineapple): reglas, mesas, WebSocket, persistencia e identidad",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "ALLOW_DEV_TOKENS=1 node app.js",
+    "test": "node --test --test-timeout=40000"
+  },
+  "dependencies": {
+    "jose": "^5.9.0",
+    "pg": "^8.13.0",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "redis": "^4.7.0"
+  }
+}

@@ -1,0 +1,168 @@
+====================================================
+    OFC PINEAPPLE - COMIENZA AQUI
+====================================================
+
+PASO 1: DESCARGAR ARCHIVOS
+====================================================
+
+1. Abre en navegador:
+   https://claude.ai/share/dbc047d2-cc59-476c-88f0-b16749f8e07d
+
+2. Busca estos botones y descarga:
+   - "Ver Ofc engine" -> Guarda como: ofc-engine.js
+   - "Ver Ofc table" -> Guarda como: ofc-table.js
+   - "Ver Ws server" -> Guarda como: app.js
+   - "Ver Ofc auth" -> Guarda como: ofc-auth.js
+   - "Ver Ofc db" -> Guarda como: ofc-db.js
+   - "Ver Ofc store" -> Guarda como: ofc-store.js
+   - "Ver Ofc push" -> Guarda como: ofc-push.js
+   - "Ver Ofc limits" -> Guarda como: ofc-limits.js
+   - "Ver Ofc client" (ZIP) -> Extrae en: ofc-client/
+
+3. También descarga los archivos de test (.test.js)
+
+4. Coloca TODOS los archivos en:
+   C:\PROYECTOS\POKER-CHINO\
+
+
+PASO 2: EJECUTAR INSTALADOR
+====================================================
+
+Opcion A (Recomendado):
+  1. Ve a: C:\PROYECTOS\POKER-CHINO\
+  2. Doble-click en: INSTALAR.bat
+  3. Espera a que termine (puede tardar 1-2 minutos)
+
+Opcion B (PowerShell):
+  1. Abre PowerShell
+  2. Escribe: cd C:\PROYECTOS\POKER-CHINO
+  3. Escribe: .\DESCARGAR.ps1
+  4. Escribe: .\npm-install.ps1
+
+
+PASO 3: ARRANCAR SERVIDOR
+====================================================
+
+1. Abre PowerShell
+2. Escribe: cd C:\PROYECTOS\POKER-CHINO
+3. Escribe: npm start
+4. Deberas ver:
+   [ofc] SERVER escuchando en http://localhost:8080
+5. DEJA ESTA VENTANA ABIERTA
+
+
+PASO 4: ARRANCAR CLIENTE
+====================================================
+
+1. Abre OTRO PowerShell (no cierres el anterior)
+2. Escribe: cd C:\PROYECTOS\POKER-CHINO\ofc-client
+3. Escribe: npm run dev
+4. Deberas ver:
+   ➜  local:   http://localhost:5173/
+
+
+PASO 5: JUGAR
+====================================================
+
+1. Abre navegador en: http://localhost:5173
+2. Abre dos PESTANAS distintas (o dos navegadores)
+3. En cada pestaña debera decir: "dev:ana:Ana" o similar
+4. Click en boton "Buscar partida" en ambas
+5. Cuando se encuentren, debera aparecer el tablero
+6. ¡A jugar!
+
+
+PROBLEMAS COMUNES
+====================================================
+
+Problema: "npm: comando no encontrado"
+Solucion: Instala Node.js desde https://nodejs.org/
+          Reinicia PowerShell
+          Intenta de nuevo
+
+Problema: "Puerto 8080 ocupado"
+Solucion: En PowerShell:
+          netstat -ano | findstr :8080
+          taskkill /PID XXXX /F
+          (donde XXXX es el numero que viste)
+
+Problema: "WebSocket connection failed"
+Solucion: ¿PowerShell 1 esta corriendo npm start?
+          ¿http://localhost:8080 es accesible?
+          Abre F12 en navegador y busca el error
+
+Problema: "Las cartas no se arrastran"
+Solucion: En desktop prueba con DevTools (F12)
+          Emulacion de dispositivo movil
+          En movil real funciona con Pointer Events
+
+
+ESTRUCTURA DEL PROYECTO
+====================================================
+
+C:\PROYECTOS\POKER-CHINO\
+├── package.json                 (dependencias)
+├── app.js                       (servidor)
+├── ofc-engine.js                (reglas del juego)
+├── ofc-table.js                 (maquina de estados)
+├── ofc-auth.js                  (autenticacion)
+├── ofc-db.js                    (base de datos)
+├── ofc-store.js                 (persistencia)
+├── ofc-push.js                  (notificaciones)
+├── ofc-limits.js                (limitador)
+├── *.test.js                    (pruebas)
+│
+└── ofc-client/                  (cliente React)
+    ├── package.json
+    ├── vite.config.js
+    ├── src/
+    │   ├── App.jsx
+    │   ├── components/
+    │   └── ...
+    └── node_modules/
+
+
+COMANDOS UTILES
+====================================================
+
+Ejecutar pruebas:
+  npm test
+
+Ejecutar solo pruebas de reglas:
+  npm run test:engine
+
+Ver estado del servidor:
+  curl http://localhost:8080/health
+
+Detener servidor:
+  Presiona Ctrl+C en PowerShell 1
+
+Detener cliente:
+  Presiona Ctrl+C en PowerShell 2
+
+
+MAS INFORMACION
+====================================================
+
+Lee estos archivos en la carpeta:
+- README.md           (descripcion del proyecto)
+- .env                (configuracion)
+
+Para debugging:
+- Abre DevTools (F12) en navegador
+- Ve a Console para ver errores
+- Ve a Network para ver WebSocket
+
+
+¿NECESITAS AYUDA?
+====================================================
+
+1. Lee el archivo README.md
+2. Verifica que tengas todos los archivos descargados
+3. Comprueba que Node.js este instalado (node --version)
+4. Intenta ejecutar npm start nuevamente
+
+====================================================
+¡Buena suerte! Este juego funciona perfecto una vez
+que todos los archivos estan en su lugar.
+====================================================

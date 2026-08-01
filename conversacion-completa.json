@@ -1,0 +1,336 @@
+{
+  "proyecto": "Juego Multijugador de Póker Chino (OFC Pineapple)",
+  "fecha_inicio": "2026-07-28T14:58:00Z",
+  "fecha_fin": "2026-07-29T23:00:00Z",
+  "stack": {
+    "servidor": {
+      "runtime": "Node.js 22+",
+      "modulos": [
+        "ws@8",
+        "pg@8",
+        "redis@4",
+        "jose@5"
+      ],
+      "arquitectura": "ESM, escritor único"
+    },
+    "cliente": {
+      "framework": "React 18",
+      "bundler": "Vite 5",
+      "móvil": "Capacitor 6",
+      "plataformas": [
+        "Web",
+        "Android",
+        "iOS"
+      ]
+    },
+    "persistencia": {
+      "cache": "Redis",
+      "base_datos": "PostgreSQL 16",
+      "logs": "stdout (sin ELK)"
+    },
+    "autenticación": "OAuth Google + JWT HS256"
+  },
+  "fases": [
+    {
+      "numero": 1,
+      "titulo": "Especificación y Requisitos",
+      "entrega": "Documento de requisitos",
+      "decisiones": [
+        "Variante OFC Pineapple (5 cartas iniciales + 4 rondas)",
+        "Multijugador online con WebSocket real-time",
+        "2-3 jugadores por mesa",
+        "Fantasyland clásico v1 (QQ+ = 14 cartas)",
+        "Cola automática + salas privadas (código 4 chars)",
+        "Scoring estándar OFC con royalties"
+      ],
+      "pruebas": 0
+    },
+    {
+      "numero": 2,
+      "titulo": "Motor de Reglas Puro",
+      "entrega": "ofc-engine.js (600 líneas)",
+      "caracteristicas": [
+        "Evaluación de manos 3/5/6 cartas",
+        "Clave de comparación fija [categoría, t1..t5]",
+        "Royalties top/middle/bottom",
+        "Barajado criptográfico (crypto.randomInt)",
+        "Fantasyland validación y permanencia",
+        "API scoring con foul sintético"
+      ],
+      "pruebas": 14,
+      "pruebas_verdes": 14
+    },
+    {
+      "numero": 3,
+      "titulo": "Máquina de Estados + WebSocket",
+      "entrega": "ofc-table.js (600 líneas) + ws-server.js (800 líneas)",
+      "caracteristicas": [
+        "Máquina de estados: WAITING → PLACING → SHOWDOWN",
+        "Tiempo parametrizado, sin timers internos",
+        "Auto-jugada Monte Carlo 24 iter (0.7% foul)",
+        "Reconexión: índice playerId → tableId",
+        "Fantasyland tablero oculto",
+        "Salas privadas con código 30-char (900k combos)",
+        "Desconexión con margen de gracia"
+      ],
+      "protocolo_websocket": {
+        "cliente_a_servidor": [
+          "auth",
+          "join",
+          "create_room",
+          "join_room",
+          "place",
+          "ready",
+          "leave"
+        ],
+        "servidor_a_cliente": [
+          "authenticated",
+          "queued",
+          "room",
+          "state",
+          "event",
+          "error"
+        ]
+      },
+      "pruebas": 17,
+      "pruebas_verdes": 17
+    },
+    {
+      "numero": 4,
+      "titulo": "Cliente React Mobile-First",
+      "entrega": "ofc-client/ (proyecto Vite completo)",
+      "caracteristicas": [
+        "React 18 + Vite 5",
+        "Drag & drop con Pointer Events",
+        "Tablero: 3 filas (5/3/3) + dock + riel",
+        "Tipografía: Barlow Condensed/normal",
+        "Paleta: 6 colores CSS variables",
+        "Reloj con barra ambar, corrección serverNow",
+        "Componentes: Card, Board, Lobby, Table, SignIn, Leaderboard"
+      ],
+      "interaccion": [
+        "Tap: carta → fila",
+        "Drag: 6px umbral, ghost visual",
+        "Reloj: barra reductiva, corrección de offset",
+        "prefers-reduced-motion respetado"
+      ],
+      "pruebas": 0
+    },
+    {
+      "numero": 5,
+      "titulo": "Persistencia + OAuth + PostgreSQL",
+      "entrega": "ofc-store.js, ofc-db.js, ofc-auth.js, app.js",
+      "persistencia": {
+        "mecanismo": "Pausa + snapshot + rehidratación",
+        "desplazamiento": "Plazos atrasados lo que duró caída",
+        "ttl": "7 días en Redis",
+        "indice": "playerTables para recuperar asiento"
+      },
+      "base_datos": [
+        "users (id, google_sub, name, avatar_url)",
+        "hands (table_id, hand_number, seats)",
+        "hand_players (user_id, delta, royalties, foul, fantasyland...)",
+        "devices (token, user_id, platform)"
+      ],
+      "autenticacion": {
+        "flujo": "Google ID token → verificar JWKS → emitir JWT propio",
+        "razon": "ID Google caduca 1h, JWT propio 30 días",
+        "tokens_dev": "dev:<id>:<nombre> (solo ALLOW_DEV_TOKENS=1)"
+      },
+      "endpoints": [
+        "POST /auth/google (token → sesión)",
+        "GET /api/leaderboard (últimos N días, mín M manos)",
+        "GET /api/me/history (historial personal)"
+      ],
+      "pruebas": 10,
+      "pruebas_verdes": 10
+    },
+    {
+      "numero": 6,
+      "titulo": "Notificaciones Push + Capacitor",
+      "entrega": "ofc-push.js, push.test.js, integración Capacitor",
+      "presencia": {
+        "mecanismo": "Cliente avisa foreground/background",
+        "razon": "Socket vivo no = mirando pantalla",
+        "mensaje": "type:presence, state"
+      },
+      "aviso_de_turno": {
+        "condiciones": [
+          "Es tu turno AND",
+          "(estás en background OR sin socket)"
+        ],
+        "contenido": "Título + segundos restantes",
+        "transporte": "FCM HTTP v1 (Android + iOS vía APNs)"
+      },
+      "dispositivos": {
+        "almacenamiento": "token → usuario (no usuario → tokens)",
+        "reasignacion": "Cada login cambia el dueño",
+        "limpieza": "FCM reject borra token automáticamente"
+      },
+      "capacitor": {
+        "requisitos": "Android Studio SDK34+ / Xcode 15+",
+        "ciclo": "npm run android/ios/sync",
+        "config": "capacitor.config.json",
+        "puente": "onActiveChange, registerPush, tapFeedback"
+      },
+      "pruebas": 5,
+      "pruebas_verdes": 5
+    }
+  ],
+  "testing": {
+    "total": 51,
+    "verdes": 51,
+    "fallidas": 0,
+    "saltadas": 0,
+    "cobertura": "100% reglas y transporte",
+    "categories": {
+      "motor": 14,
+      "mesa_websocket": 17,
+      "persistencia": 6,
+      "api_sesiones": 9,
+      "push": 5
+    }
+  },
+  "decisiones_tecnicas": [
+    {
+      "decision": "Servidor sin framework",
+      "razon": "Node puro (http + ws) vs Express/Socket.io",
+      "beneficio": "Una responsabilidad, control completo, menos deps"
+    },
+    {
+      "decision": "Pausa en lugar de cierre",
+      "razon": "Cuando todos se desconectan, congelar mesa",
+      "beneficio": "Las caídas no consumen reloj de turno"
+    },
+    {
+      "decision": "Serialización completa",
+      "razon": "Toda la mesa en la instantánea",
+      "beneficio": "Recuperación transparente, mazo no regenerado"
+    },
+    {
+      "decision": "Un solo escritor",
+      "razon": "Un proceso ejecuta tick() por mesa",
+      "beneficio": "Sin races, pero requiere afinidad en balanceador"
+    },
+    {
+      "decision": "Presencia explícita",
+      "razon": "Cliente avisa foreground/background",
+      "beneficio": "Socket vivo no = mirando, avisos correctos"
+    },
+    {
+      "decision": "Dispositivos siguen último login",
+      "razon": "Token → usuario, no usuario → tokens",
+      "beneficio": "Móvil que cambia cuenta, aviso va al correcto"
+    }
+  ],
+  "estado": {
+    "implementado": [
+      "Motor de reglas",
+      "Máquina de estados",
+      "WebSocket robusto",
+      "Persistencia Redis",
+      "PostgreSQL historial",
+      "OAuth Google",
+      "Notificaciones FCM",
+      "Cliente React mobile",
+      "Capacitor Android/iOS",
+      "51 pruebas verdes"
+    ],
+    "falta_testear_dispositivo": [
+      "Ciclo de vida iOS/Android",
+      "Permisos notificación",
+      "Suspensión WebSocket en background",
+      "Rendimiento multi-mesa"
+    ],
+    "responsabilidad_usuario": [
+      "Google Cloud: cliente OAuth",
+      "Firebase: proyecto y credenciales FCM",
+      "TLS: certificados para wss://",
+      "Infraestructura: PostgreSQL, Redis en prod",
+      "CI/CD y dominio",
+      "Play Store: firma y publicación",
+      "Apple Developer: si iOS"
+    ],
+    "sin_implementar_proxima_fase": [
+      "Límites de frecuencia WebSocket",
+      "Purga de mesas huérfanas",
+      "Logs estructurados",
+      "Tests cliente (React Testing Library)",
+      "Accesibilidad teclado",
+      "Animaciones y sonido",
+      "Auditoría de baraja (fairness)"
+    ]
+  },
+  "archivos_principales": {
+    "servidor": {
+      "app.js": "Raíz: HTTP + WebSocket + composición",
+      "ws-server.js": "GameServer, máquina de estados",
+      "ofc-engine.js": "Reglas puras",
+      "ofc-table.js": "Clase Table, serialización",
+      "ofc-store.js": "MemoryStore, RedisStore",
+      "ofc-db.js": "PostgreSQL ORM-less",
+      "ofc-auth.js": "Google OAuth, JWT",
+      "ofc-push.js": "FCM, dispositivos"
+    },
+    "cliente": {
+      "src/App.jsx": "Routing, identidad",
+      "src/lib/auth.js": "Google, sesión, leaderboard",
+      "src/lib/native.js": "Puente Capacitor",
+      "src/hooks/useOfcGame.js": "Estado sesión",
+      "src/hooks/useNativeBridge.js": "Ciclo de vida móvil",
+      "src/components/*": "Card, Board, Table, etc"
+    },
+    "tests": {
+      "ofc-engine.test.js": "14 tests reglas",
+      "ofc-table.test.js": "12 tests mesa",
+      "ws-server.test.js": "5 tests transporte",
+      "api.test.js": "10 tests HTTP",
+      "push.test.js": "5 tests notificaciones",
+      "persistence.test.js": "3 tests Redis",
+      "test-helpers.js": "connect(), startServer()"
+    }
+  },
+  "variables_entorno": {
+    "desarrollo": {
+      "PORT": "8080 (default)",
+      "ALLOW_DEV_TOKENS": "1",
+      "VITE_WS_URL": "ws://localhost:8080"
+    },
+    "produccion": {
+      "SESSION_SECRET": "obligatorio, 32+ chars",
+      "GOOGLE_CLIENT_ID": "desde Google Cloud",
+      "DATABASE_URL": "postgres://...",
+      "REDIS_URL": "redis://...",
+      "FCM_CREDENTIALS": "JSON cuenta Firebase",
+      "CORS_ORIGIN": "https://tudominio.com",
+      "VITE_API_URL": "https://api.tudominio.com"
+    }
+  },
+  "siguientes_pasos": [
+    {
+      "prioridad": 1,
+      "tarea": "Testear en dispositivo móvil real",
+      "razon": "Ciclo de vida, permisos, suspensión WebSocket"
+    },
+    {
+      "prioridad": 2,
+      "tarea": "Implementar límites de frecuencia",
+      "razon": "Prevenir inundación de WebSocket"
+    },
+    {
+      "prioridad": 3,
+      "tarea": "Purgar mesas huérfanas",
+      "razon": "Fuga de memoria, mesas congeladas indefinidas"
+    },
+    {
+      "prioridad": 4,
+      "tarea": "Google Cloud + Firebase + TLS",
+      "razon": "Requisito para producción"
+    },
+    {
+      "prioridad": 5,
+      "tarea": "Observabilidad: logs estructurados",
+      "razon": "Debugging en producción"
+    }
+  ]
+}

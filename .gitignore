@@ -1,0 +1,14 @@
+node_modules/
+ofc-client/
+ofc-desktop/
+.env
+*.log
+_staging/
+*.zip
+*.jks
+*.apk
+*.aab
+.claude/
+ENTREGA-FINAL/
+keystore-BACKUP-ESTO/
+historial-conversacion/
