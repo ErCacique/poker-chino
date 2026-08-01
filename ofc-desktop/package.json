@@ -1,6 +1,6 @@
 {
   "name": "ofc-pineapple-desktop",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "Pineapple OFC - App de escritorio",
   "main": "main.js",
   "scripts": {

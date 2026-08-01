@@ -16,6 +16,7 @@
  *   { type:'join',  seats?:2|3 }          // cola de emparejamiento
  *   { type:'create_room', seats?:2|3 }    // sala privada, devuelve código
  *   { type:'join_room',   code }
+ *   { type:'practice_bots', seats?:2|3 }  // mesa instantánea contra bots
  *   { type:'place', placements:[{card,row}], discards:[card] }
  *   { type:'ready' }                       // pedir siguiente mano
  *   { type:'leave' }
@@ -34,6 +35,20 @@ import { Table, PHASE } from './ofc-table.js';
 import { MemoryStore } from './ofc-store.js';
 import { NullPusher } from './ofc-push.js';
 import { SocketLimiter } from './ofc-limits.js';
+
+/**
+ * Bots de práctica: no tienen socket ni sesión, sólo un id fijo reconocible.
+ * Sus turnos los resuelve el reloj de la mesa exactamente igual que a un
+ * humano que se queda sin tiempo (autoPlace vía Table.tick), así que no hace
+ * falta ninguna lógica de decisión aparte: basta con sentarlos y no hacer
+ * nada más. Nunca se registran en sessions/playerTables porque nada necesita
+ * "reconectarlos": nunca se desconectan.
+ */
+const BOTS = [
+  { id: 'bot:marcos', name: 'Marcos' },
+  { id: 'bot:maria', name: 'María' },
+];
+const BOT_NAMES = new Map(BOTS.map((b) => [b.id, b.name]));
 
 /**
  * Verificador de token por defecto. Formato de desarrollo: "dev:<id>:<nombre>".
@@ -65,6 +80,7 @@ export class GameServer {
     graceMs = 60_000,
     showdownMs = 8_000,
     heartbeatMs = 30_000,
+    botFillMs = 30_000,
     maxPayload = 16 * 1024,
     limits = {},
     tableTtlMs = 7 * 24 * 60 * 60 * 1000,
@@ -83,6 +99,8 @@ export class GameServer {
     this.tableOptions = { turnMs, fantasylandMs, graceMs };
     this.showdownMs = showdownMs;
     this.heartbeatMs = heartbeatMs;
+    // Cuánto espera la cola normal antes de completar los huecos con bots.
+    this.botFillMs = botFillMs;
     // Tope de tamaño: ws corta la conexión con 1009 antes de reservar memoria,
     // así que un mensaje gigante no llega siquiera a JSON.parse.
     this.maxPayload = maxPayload;
@@ -97,6 +115,7 @@ export class GameServer {
     this.tables = new Map();      // tableId -> { table, showdownAt }
     this.sessions = new Map();    // playerId -> { socket, tableId, name }
     this.queues = new Map([[2, []], [3, []]]); // asientos -> playerIds en espera
+    this.queuedAt = new Map();    // playerId -> desde cuándo espera en cola
     this.rooms = new Map();       // código -> { seats, players:[playerId] }
     this.playerTables = new Map();// playerId -> tableId, sobrevive al reinicio
     this.nextTableId = 1;
@@ -225,6 +244,7 @@ export class GameServer {
       case 'join': return this._join(socket.playerId, message.seats ?? 2);
       case 'create_room': return this._createRoom(socket.playerId, message.seats ?? 2);
       case 'join_room': return this._joinRoom(socket.playerId, message.code);
+      case 'practice_bots': return this._practiceBots(socket.playerId, message.seats ?? 2);
       case 'presence': return this._presence(socket.playerId, message.state);
       case 'push_token': return this._registerDevice(socket.playerId, message);
       case 'place': return this._place(socket.playerId, message);
@@ -315,11 +335,43 @@ export class GameServer {
     if (session.tableId) throw new OfcError('ALREADY_SEATED', 'Ya estás en una mesa');
 
     const queue = this.queues.get(seats);
-    if (!queue.includes(playerId)) queue.push(playerId);
+    if (!queue.includes(playerId)) {
+      queue.push(playerId);
+      this.queuedAt.set(playerId, Date.now());
+    }
     this._send(session.socket, { type: 'queued', seats, waiting: queue.length });
 
     if (queue.length < seats) return;
-    this._startTable(queue.splice(0, seats));
+    const matched = queue.splice(0, seats);
+    for (const id of matched) this.queuedAt.delete(id);
+    this._startTable(matched);
+  }
+
+  /** Mesa instantánea contra bots: rellena el resto de asientos con Marcos/María. */
+  _practiceBots(playerId, seats) {
+    this._assertSeats(seats);
+    const session = this.sessions.get(playerId);
+    if (session.tableId) throw new OfcError('ALREADY_SEATED', 'Ya estás en una mesa');
+    this._dequeue(playerId);
+    const bots = BOTS.slice(0, seats - 1).map((b) => b.id);
+    this._startTable([playerId, ...bots]);
+  }
+
+  /**
+   * Si alguien lleva esperando rival humano más de botFillMs, se completa la
+   * mesa con bots en vez de dejarle esperando indefinidamente. Se usan tantos
+   * humanos como haya ya en cola antes de rellenar el resto.
+   */
+  _fillStaleQueues(now) {
+    for (const [seats, queue] of this.queues) {
+      if (!queue.length) continue;
+      const oldest = this.queuedAt.get(queue[0]);
+      if (oldest === undefined || now - oldest < this.botFillMs) continue;
+      const humans = queue.splice(0, seats);
+      for (const id of humans) this.queuedAt.delete(id);
+      const bots = BOTS.slice(0, seats - humans.length).map((b) => b.id);
+      this._startTable([...humans, ...bots]);
+    }
   }
 
   /** Crea una sala privada y devuelve su código de 4 caracteres. */
@@ -361,12 +413,16 @@ export class GameServer {
   _startTable(playerIds, roomCode = null) {
     const table = new Table({
       id: roomCode ?? `mesa-${this.nextTableId++}`,
-      players: playerIds.map((id) => ({ id, name: this.sessions.get(id).name })),
+      players: playerIds.map((id) => ({
+        id,
+        name: BOT_NAMES.get(id) ?? this.sessions.get(id).name,
+      })),
       ...this.tableOptions,
     });
     const entry = { table, showdownAt: null };
     this.tables.set(table.id, entry);
     for (const id of playerIds) {
+      if (BOT_NAMES.has(id)) continue; // los bots no tienen sesión que sentar
       this.sessions.get(id).tableId = table.id;
       this.playerTables.set(id, table.id);
     }
@@ -451,6 +507,7 @@ export class GameServer {
       const index = queue.indexOf(playerId);
       if (index >= 0) queue.splice(index, 1);
     }
+    this.queuedAt.delete(playerId);
     for (const [code, room] of this.rooms) {
       const index = room.players.indexOf(playerId);
       if (index < 0) continue;
@@ -474,6 +531,7 @@ export class GameServer {
   /* ── reloj y difusión ── */
 
   _tickAll(now) {
+    this._fillStaleQueues(now);
     for (const entry of this.tables.values()) {
       if (entry.table.pausedAt !== null) continue; // mesa congelada: nadie mirando
       const events = entry.table.tick(now);
@@ -565,7 +623,7 @@ export class GameServer {
     // El historial se persiste fuera del camino crítico: si falla la escritura
     // la partida continúa, sólo se pierde esa mano en las estadísticas.
     for (const event of events) {
-      if (event.type !== 'turn') continue;
+      if (event.type !== 'turn' || BOT_NAMES.has(event.playerId)) continue;
       const session = this.sessions.get(event.playerId);
       // Sólo se avisa a quien no está delante: si la app está abierta ya lo ve.
       if (session?.socket && !session.background) continue;
@@ -576,7 +634,9 @@ export class GameServer {
       })).catch((error) => console.error('[ofc] push falló:', error.message));
     }
 
-    if (this.onHandEnded) {
+    // Las manos de práctica contra bots no cuentan para estadísticas ni ranking.
+    const isPractice = entry.table.players.some((p) => BOT_NAMES.has(p.id));
+    if (this.onHandEnded && !isPractice) {
       for (const event of events) {
         if (event.type !== 'hand_ended') continue;
         Promise.resolve(this.onHandEnded(entry.table, event.result)).catch((error) => {

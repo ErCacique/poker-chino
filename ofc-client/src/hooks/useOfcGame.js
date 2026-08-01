@@ -96,6 +96,7 @@ export function useOfcGame(token) {
     joinQueue: (seats) => send({ type: 'join', seats }),
     createRoom: (seats) => send({ type: 'create_room', seats }),
     joinRoom: (code) => send({ type: 'join_room', code }),
+    practiceBots: (seats) => send({ type: 'practice_bots', seats }),
     place: (placements, discards) => send({ type: 'place', placements, discards }),
     ready: () => send({ type: 'ready' }),
     leave: () => { send({ type: 'leave' }); setTable(null); setLobby(null); },

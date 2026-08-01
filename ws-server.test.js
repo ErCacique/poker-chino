@@ -157,3 +157,95 @@ test('un código inexistente devuelve error sin sentar a nadie', async (t) => {
 
   await client.close();
 });
+
+test('practicar contra bots: mesa instantánea y el bot resuelve su turno solo', async (t) => {
+  const { server, port } = await startServer({ turnMs: 150 });
+  t.after(() => server.close());
+
+  const ana = connect(port);
+  await ana.open;
+  ana.send({ type: 'auth', token: 'dev:a:Ana' });
+  await ana.wait((m) => m.type === 'authenticated');
+
+  ana.send({ type: 'practice_bots', seats: 2 });
+  const state = (await ana.wait((m) => m.type === 'state')).state;
+
+  assert.equal(state.players.length, 2);
+  const bot = state.players.find((p) => p.id !== 'a');
+  assert.equal(bot.id, 'bot:marcos');
+  assert.equal(bot.name, 'Marcos');
+  assert.equal(state.activePlayerId, 'a', 'la humana ocupa el asiento 0 y actúa primero');
+
+  const hand = state.players.find((p) => p.id === 'a').hand;
+  ana.send({
+    type: 'place',
+    placements: [
+      { card: hand[0], row: 'bottom' }, { card: hand[1], row: 'bottom' },
+      { card: hand[2], row: 'middle' }, { card: hand[3], row: 'middle' },
+      { card: hand[4], row: 'top' },
+    ],
+    discards: [],
+  });
+
+  // El turno pasa al bot; nadie manda 'place' en su nombre, y el reloj de la
+  // mesa (el mismo que resuelve a un humano que se queda sin tiempo) lo hace.
+  const turnToBot = await ana.wait(
+    (m) => m.type === 'event' && m.event.type === 'turn' && m.event.playerId === 'bot:marcos',
+  );
+  assert.ok(turnToBot.event.deadline > Date.now());
+
+  // Ojo: no basta con esperar activePlayerId === 'a', porque ese mismo valor
+  // ya aparece en el primer 'state' (reparto inicial) que sigue en el buzón;
+  // se comprueba directamente que el tablero del bot dejó de estar vacío.
+  await ana.wait(
+    (m) => m.type === 'state'
+      && m.state.players.find((p) => p.id === 'bot:marcos')?.board.bottom.length === 2,
+    2000,
+  );
+
+  await ana.close();
+});
+
+test('la cola normal se completa con bots si no aparece rival humano a tiempo', async (t) => {
+  const { server, port } = await startServer({ botFillMs: 100 });
+  t.after(() => server.close());
+
+  const ana = connect(port);
+  await ana.open;
+  ana.send({ type: 'auth', token: 'dev:a:Ana' });
+  await ana.wait((m) => m.type === 'authenticated');
+
+  ana.send({ type: 'join', seats: 2 });
+  await ana.wait((m) => m.type === 'queued');
+
+  const state = (await ana.wait((m) => m.type === 'state', 2000)).state;
+  const opponent = state.players.find((p) => p.id !== 'a');
+  assert.equal(opponent.id, 'bot:marcos', 'sin rival humano, la cola se rellena con un bot');
+
+  await ana.close();
+});
+
+test('las manos contra bots no se guardan para estadísticas', async (t) => {
+  let handEndedCalls = 0;
+  const { server, port } = await startServer({
+    turnMs: 150,
+    onHandEnded: () => { handEndedCalls += 1; },
+  });
+  t.after(() => server.close());
+
+  const ana = connect(port);
+  await ana.open;
+  ana.send({ type: 'auth', token: 'dev:a:Ana' });
+  await ana.wait((m) => m.type === 'authenticated');
+
+  ana.send({ type: 'practice_bots', seats: 2 });
+  await ana.wait((m) => m.type === 'state');
+
+  // Sin mandar ninguna jugada, el reloj resuelve las cinco calles de ambos
+  // jugadores por autoPlace hasta el showdown: confirma que hand_ended
+  // realmente se dispara y, aun así, no llega a onHandEnded.
+  await ana.wait((m) => m.type === 'event' && m.event.type === 'hand_ended', 10_000);
+  assert.equal(handEndedCalls, 0, 'una mano de práctica no debe persistirse');
+
+  await ana.close();
+});

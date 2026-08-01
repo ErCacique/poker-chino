@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 export function Lobby({ game, name, onChangeName, nameEditable = true }) {
-  const { lobby, joinQueue, createRoom, joinRoom, leave } = game;
+  const { lobby, joinQueue, createRoom, joinRoom, practiceBots, leave } = game;
   const [seats, setSeats] = useState(2);
   const [code, setCode] = useState('');
 
@@ -10,6 +10,7 @@ export function Lobby({ game, name, onChangeName, nameEditable = true }) {
       <section className="panel panel--waiting">
         <h2>Buscando rivales</h2>
         <p>Mesa de {lobby.seats}. En cola: {lobby.waiting}.</p>
+        <p className="board-note">Si no aparece nadie en 30s, se completa con bots.</p>
         <div className="pulse" aria-hidden="true"><span /><span /><span /></div>
         <button type="button" className="btn btn--ghost" onClick={leave}>Cancelar</button>
       </section>
@@ -70,6 +71,12 @@ export function Lobby({ game, name, onChangeName, nameEditable = true }) {
       <button type="button" className="btn btn--ghost" onClick={() => createRoom(seats)}>
         Crear sala privada
       </button>
+      <button type="button" className="btn btn--ghost" onClick={() => practiceBots(seats)}>
+        Practicar contra bots
+      </button>
+      <p className="board-note" style={{ margin: 0 }}>
+        {seats === 2 ? 'Contra Marcos.' : 'Contra Marcos y María.'} No cuenta para tus estadísticas.
+      </p>
 
       <div className="join-code">
         <input
