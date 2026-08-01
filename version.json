@@ -1,5 +1,5 @@
 {
-  "version": "1.4.1",
+  "version": "1.4.2",
   "releaseDate": "2026-08-01",
-  "description": "Boton de actualizar mas robusto: fallback si falla el plugin nativo"
+  "description": "Corrige error interno al reconectar a una mesa obsoleta"
 }

@@ -258,7 +258,7 @@ export class GameServer {
       socket.playerId = playerId;
       this._send(socket, { type: 'authenticated', playerId, name: existing.name });
       const entry = existing.tableId ? this.tables.get(existing.tableId) : null;
-      if (entry) this._rejoin(entry, playerId, socket);
+      if (entry) this._rejoinSafely(entry, playerId, socket, existing.tableId);
       return;
     }
 
@@ -271,7 +271,26 @@ export class GameServer {
     this._send(socket, { type: 'authenticated', playerId, name });
 
     const entry = tableId ? this.tables.get(tableId) : null;
-    if (entry) this._rejoin(entry, playerId, socket);
+    if (entry) this._rejoinSafely(entry, playerId, socket, tableId);
+  }
+
+  /**
+   * `authenticated` ya se ha mandado cuando esto se llama: un fallo aquí no
+   * puede tirar la conexión abajo con un error genérico dejando al cliente a
+   * medias (logueado pero con un aviso rojo encima). Si la mesa referenciada
+   * está en un estado que no se puede reanudar (índice desincronizado tras un
+   * reinicio, mesa ya liquidada, etc.), se descarta la referencia y el
+   * jugador aterriza en un lobby normal en vez de ver un error.
+   */
+  _rejoinSafely(entry, playerId, socket, tableId) {
+    try {
+      this._rejoin(entry, playerId, socket);
+    } catch (error) {
+      console.error('[ofc] no se pudo reanudar la mesa, se descarta la referencia:', error);
+      this.playerTables.delete(playerId);
+      const session = this.sessions.get(playerId);
+      if (session && session.tableId === tableId) session.tableId = null;
+    }
   }
 
   /** Vuelve a sentar a un jugador: reanuda la mesa si estaba congelada. */
