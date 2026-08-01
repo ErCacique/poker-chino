@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "releaseDate": "2026-08-01",
-  "description": "Nuevo diseno: mesa de casino clasica, fieltro, oro y logo nuevo"
+  "description": "Boton de actualizar mas robusto: fallback si falla el plugin nativo"
 }

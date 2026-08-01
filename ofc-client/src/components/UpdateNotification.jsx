@@ -1,9 +1,12 @@
-export function UpdateNotification({ update, isInstalling, onInstall }) {
+export function UpdateNotification({ update, isInstalling, installError, onInstall }) {
   if (!update) return null;
 
   return (
     <div className="update-notification">
-      <p>Actualización disponible: v{update.version}</p>
+      <div className="update-notification__body">
+        <p>Actualización disponible: v{update.version}</p>
+        {installError && <p className="update-notification__error">{installError}</p>}
+      </div>
       <button
         type="button"
         onClick={onInstall}

@@ -13,6 +13,7 @@ const CHECK_INTERVAL = 60 * 60 * 1000; // chequear cada hora
 export function useCheckUpdates() {
   const [updateAvailable, setUpdateAvailable] = useState(null);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [installError, setInstallError] = useState(null);
 
   async function checkForUpdates() {
     try {
@@ -39,23 +40,34 @@ export function useCheckUpdates() {
   async function installUpdate() {
     if (!updateAvailable) return;
     setIsInstalling(true);
+    setInstallError(null);
     try {
       if (Capacitor.isNativePlatform()) {
         const platform = Capacitor.getPlatform();
         const url = updateAvailable.downloads[platform === 'ios' ? 'ios' : 'android'];
-        if (!url) throw new Error(`No download URL for ${platform}`);
+        if (!url) throw new Error(`No hay descarga disponible para ${platform}`);
 
         // En Android: abrir el link para que el user descargue manualmente
-        // (auto-install programático requiere permisos especiales)
-        await App.openUrl({ url });
+        // (auto-install programático requiere permisos especiales). Si el
+        // plugin de App falla o no está disponible, caemos a navegar la
+        // propia WebView a la URL: sigue disparando la descarga del sistema.
+        try {
+          await App.openUrl({ url });
+        } catch {
+          window.location.href = url;
+        }
+      } else {
+        window.open(updateAvailable.downloads.windows ?? '#', '_blank');
       }
-      // Windows: electron-updater lo maneja automáticamente
+      // Windows/Electron nativo: electron-updater lo maneja automáticamente,
+      // no pasa por aquí.
     } catch (err) {
       console.error('[ofc] update install failed:', err.message);
+      setInstallError('No se pudo abrir la descarga. Vuelve a intentarlo.');
     } finally {
       setIsInstalling(false);
     }
   }
 
-  return { updateAvailable, isInstalling, installUpdate };
+  return { updateAvailable, isInstalling, installError, installUpdate };
 }

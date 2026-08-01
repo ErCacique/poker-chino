@@ -76,7 +76,7 @@ export default function App() {
   const [session, setSession] = useState(loadSession);
   const [devIdentity, setDevIdentity] = useState(loadDevIdentity);
   const usesGoogle = Boolean(GOOGLE_CLIENT_ID);
-  const { updateAvailable, isInstalling, installUpdate } = useCheckUpdates();
+  const { updateAvailable, isInstalling, installError, installUpdate } = useCheckUpdates();
 
   useEffect(() => {
     if (!usesGoogle) sessionStorage.setItem('ofc.identity', JSON.stringify(devIdentity));
@@ -139,6 +139,7 @@ export default function App() {
       <UpdateNotification
         update={updateAvailable}
         isInstalling={isInstalling}
+        installError={installError}
         onInstall={installUpdate}
       />
 

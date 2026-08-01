@@ -602,7 +602,9 @@ input:focus-visible, .btn:focus-visible, .seg__item:focus-visible {
   font-size: 14px;
 }
 
-.update-notification p { margin: 0; flex: 1; }
+.update-notification__body { flex: 1; }
+.update-notification p { margin: 0; }
+.update-notification__error { margin-top: 4px !important; color: var(--rose); font-size: 12px; }
 .update-notification .btn { padding: 8px 12px; min-height: 0; font-size: 13px; flex: none; }
 
 /* ── Avatar ── */
