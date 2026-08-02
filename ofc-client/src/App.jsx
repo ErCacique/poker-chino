@@ -4,6 +4,7 @@ import { Lobby } from './components/Lobby.jsx';
 import { TableView } from './components/Table.jsx';
 import { SignIn } from './components/SignIn.jsx';
 import { ChooseUsername } from './components/ChooseUsername.jsx';
+import { Tutorial, shouldShowTutorial } from './components/Tutorial.jsx';
 import { Leaderboard } from './components/Leaderboard.jsx';
 import { Avatar } from './components/Avatar.jsx';
 import { ProfileMenu } from './components/ProfileMenu.jsx';
@@ -105,6 +106,7 @@ export default function App() {
     window.history.replaceState({}, '', url);
   }, [game.status]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(shouldShowTutorial);
   const onSignedIn = useCallback((value) => setSession(value), []);
   const onSessionUpdate = useCallback((value) => {
     setSession((current) => {
@@ -169,6 +171,8 @@ export default function App() {
           )}
         </p>
       )}
+
+      {tutorialOpen && !game.table && <Tutorial onClose={() => setTutorialOpen(false)} />}
 
       {game.table ? (
         <TableView game={game} />
