@@ -16,6 +16,7 @@ export function useOfcGame(token) {
   const [lobby, setLobby] = useState(null); // { kind:'queued'|'room', ... }
   const [error, setError] = useState(null);
   const [log, setLog] = useState([]);
+  const [chat, setChat] = useState(null); // { playerId, text, id }
   const offsetRef = useRef(0);
 
   useEffect(() => {
@@ -49,6 +50,9 @@ export function useOfcGame(token) {
             break;
           case 'error':
             setError({ code: message.code, message: message.message });
+            break;
+          case 'chat':
+            setChat({ playerId: message.playerId, text: message.text, id: Math.random() });
             break;
           default:
             break;
@@ -88,6 +92,7 @@ export function useOfcGame(token) {
     lobby,
     error,
     log,
+    chat,
     serverNow,
     reconnect,
     setPresence,
@@ -100,5 +105,6 @@ export function useOfcGame(token) {
     place: (placements, discards) => send({ type: 'place', placements, discards }),
     ready: () => send({ type: 'ready' }),
     leave: () => { send({ type: 'leave' }); setTable(null); setLobby(null); },
+    sendChat: (text) => send({ type: 'chat', text }),
   };
 }

@@ -18,10 +18,21 @@ function useCountdown(deadline, serverNow) {
   return remaining;
 }
 
+const CHAT_PHRASES = ['👍', '😂', '😮', '🙏', 'GG'];
+
 export function TableView({ game }) {
-  const { table, you, opponents, serverNow, place, ready, leave } = game;
+  const { table, you, opponents, serverNow, place, ready, leave, chat, sendChat } = game;
   const [pending, setPending] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [chatToast, setChatToast] = useState(null);
+
+  useEffect(() => {
+    if (!chat) return;
+    const name = chat.playerId === you.id ? you.name : opponents.find((p) => p.id === chat.playerId)?.name;
+    setChatToast({ id: chat.id, text: `${name ?? '?'}: ${chat.text}` });
+    const timer = setTimeout(() => setChatToast((current) => (current?.id === chat.id ? null : current)), 3000);
+    return () => clearTimeout(timer);
+  }, [chat]);
 
   const hand = you.hand ?? [];
   const myTurn = table.activePlayerId === you.id || (you.fantasyland && hand.length > 0);
@@ -75,6 +86,7 @@ export function TableView({ game }) {
 
   return (
     <div className="table">
+      {chatToast && <div className="chat-toast">{chatToast.text}</div>}
       <header className="table__bar">
         <div className="table__id">
           <span className="eyebrow">Mesa</span>
@@ -119,6 +131,13 @@ export function TableView({ game }) {
       </section>
 
       <footer className="dock">
+        <div className="chat-bar">
+          {CHAT_PHRASES.map((phrase) => (
+            <button key={phrase} type="button" className="chat-bar__btn" onClick={() => sendChat(phrase)}>
+              {phrase}
+            </button>
+          ))}
+        </div>
         {deadline && (
           <div className="clock" aria-label={`Quedan ${Math.ceil(remaining / 1000)} segundos`}>
             <div className="clock__bar" style={{ transform: `scaleX(${Math.min(1, remaining / turnMs)})` }} />

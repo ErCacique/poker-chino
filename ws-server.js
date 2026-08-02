@@ -50,6 +50,9 @@ const BOTS = [
 ];
 const BOT_NAMES = new Map(BOTS.map((b) => [b.id, b.name]));
 
+// Chat de frases fijas: evita moderación de texto libre.
+const CHAT_PHRASES = new Set(['👍', '😂', '😮', '🙏', 'Buena mano', 'Mala suerte', 'GG', '¡Vaya susto!']);
+
 /**
  * Verificador de token por defecto. Formato de desarrollo: "dev:<id>:<nombre>".
  * En la entrega de autenticación se sustituye por la validación del JWT firmado
@@ -250,6 +253,7 @@ export class GameServer {
       case 'place': return this._place(socket.playerId, message);
       case 'ready': return this._ready(socket.playerId);
       case 'leave': return this._leave(socket.playerId);
+      case 'chat': return this._chat(socket.playerId, message.text);
       default:
         throw new OfcError('UNKNOWN_MESSAGE', `Tipo de mensaje desconocido: ${message?.type}`);
     }
@@ -500,6 +504,15 @@ export class GameServer {
     const abandoned = entry.table.players.every((p) => this.playerTables.get(p.id) !== tableId);
     if (abandoned) this._closeTable(tableId, entry);
     else if (entry.table.isIdle()) this._dispatch(entry, entry.table.pause(Date.now()));
+  }
+
+  _chat(playerId, text) {
+    if (!CHAT_PHRASES.has(text)) throw new OfcError('BAD_REQUEST', 'Mensaje no permitido');
+    const entry = this._tableOf(playerId);
+    for (const player of entry.table.players) {
+      const socket = this.sessions.get(player.id)?.socket;
+      if (socket) this._send(socket, { type: 'chat', playerId, text });
+    }
   }
 
   _dequeue(playerId) {
