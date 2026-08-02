@@ -269,11 +269,16 @@ export class GameServer {
       // misma cuenta. Solo permitir si es el mismo socket (reconexión); rechazar cualquier
       // otra cosa con un error explícito en vez de un cierre silencioso que causa reintentos.
       if (existing.socket !== socket) {
-        const isLikelyReconnect = socket.readyState === WebSocket.OPEN && Date.now() - existing.lastSeenAt < 5000;
+        // 60s, no 5s: en móvil, bloquear la pantalla o perder cobertura un
+        // momento ya tarda más que eso en reconectar, y con una ventana corta
+        // cualquier reconexión normal se confundía con "otro dispositivo",
+        // lanzando SESSION_CONFLICT constantemente. 60s cubre el ir-y-volver
+        // típico de background/foreground sin dejar de detectar una sesión
+        // realmente concurrente (dos pestañas/dispositivos activos a la vez).
+        const isLikelyReconnect = socket.readyState === WebSocket.OPEN && Date.now() - existing.lastSeenAt < 60_000;
         if (!isLikelyReconnect) {
           throw new OfcError('SESSION_CONFLICT', 'Tu cuenta está activa en otro dispositivo');
         }
-        // Si pasó menos de 5s, asumir reconexión legítima tras fluctuación de red
         existing.socket?.close?.();
       }
       existing.socket = socket;
