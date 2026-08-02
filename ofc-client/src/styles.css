@@ -172,6 +172,90 @@ body {
 
 .panel--waiting { align-items: center; text-align: center; }
 
+/* ── Home rediseñada: hero con stats + CTA protagonista ── */
+
+.lobby-home { display: flex; flex-direction: column; gap: 12px; }
+
+.hero {
+  background: radial-gradient(140% 100% at 30% 0%, rgba(212, 175, 55, 0.16), transparent 60%), var(--slate);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hero__row { display: flex; gap: 8px; }
+
+.hero__stat { flex: 1; text-align: center; }
+
+.hero__stat b {
+  display: block;
+  font-family: var(--display);
+  font-size: 20px;
+  color: var(--amber);
+}
+
+.hero__stat span {
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hero__seats { align-items: center; }
+.hero__seats .seg { width: 140px; margin: 0 auto; }
+
+.hero__cta { font-size: 20px; padding: 16px; }
+
+.secondary-row { display: flex; gap: 8px; }
+
+.sbtn {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 12px 6px;
+}
+
+/* ── Navegación inferior fija ── */
+
+.bottomnav {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  gap: 4px;
+  background: var(--slate);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px;
+}
+
+.bottomnav button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 4px;
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bottomnav button.is-active {
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--amber);
+}
+
 .panel h2 {
   font-family: var(--brand-display);
   font-style: italic;

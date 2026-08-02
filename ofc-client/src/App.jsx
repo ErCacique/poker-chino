@@ -8,6 +8,7 @@ import { Tutorial, shouldShowTutorial } from './components/Tutorial.jsx';
 import { Leaderboard } from './components/Leaderboard.jsx';
 import { Avatar } from './components/Avatar.jsx';
 import { ProfileMenu } from './components/ProfileMenu.jsx';
+import { BottomNav } from './components/BottomNav.jsx';
 import { useNativeBridge } from './hooks/useNativeBridge.js';
 import { useCheckUpdates } from './hooks/useCheckUpdates.js';
 import { UpdateNotification } from './components/UpdateNotification.jsx';
@@ -106,6 +107,11 @@ export default function App() {
     window.history.replaceState({}, '', url);
   }, [game.status]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('jugar');
+  const onTabChange = useCallback((tab) => {
+    if (tab === 'perfil') setProfileOpen(true);
+    else setActiveTab(tab);
+  }, []);
   const [tutorialOpen, setTutorialOpen] = useState(shouldShowTutorial);
   const onSignedIn = useCallback((value) => setSession(value), []);
   const onSessionUpdate = useCallback((value) => {
@@ -178,13 +184,18 @@ export default function App() {
         <TableView game={game} />
       ) : (
         <>
-          <Lobby
-            game={game}
-            name={displayName ?? ''}
-            nameEditable={!usesGoogle}
-            onChangeName={(value) => setDevIdentity((current) => ({ ...current, name: value }))}
-          />
-          <Leaderboard />
+          {activeTab === 'ranking' ? (
+            <Leaderboard />
+          ) : (
+            <Lobby
+              game={game}
+              name={displayName ?? ''}
+              nameEditable={!usesGoogle}
+              onChangeName={(value) => setDevIdentity((current) => ({ ...current, name: value }))}
+              session={usesGoogle ? session : null}
+            />
+          )}
+          <BottomNav active={profileOpen ? 'perfil' : activeTab} onChange={onTabChange} />
         </>
       )}
     </div>

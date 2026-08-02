@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "releaseDate": "2026-08-02",
-  "description": "Invitar con link, chat de emojis, Fantasyland progresivo y tutorial"
+  "description": "Rediseño de la lobby: navegación inferior, hero con stats y botón Jugar protagonista"
 }
