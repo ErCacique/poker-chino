@@ -92,6 +92,18 @@ export default function App() {
 
   const game = useOfcGame(token);
   useNativeBridge(game);
+
+  // Enlace de invitación: ?join=CODE entra directo a la sala en cuanto hay
+  // conexión, sin que el usuario tenga que teclear el código.
+  useEffect(() => {
+    if (!game.joinRoom || game.status !== 'online' || game.table || game.lobby) return;
+    const code = new URLSearchParams(window.location.search).get('join');
+    if (!code) return;
+    game.joinRoom(code);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('join');
+    window.history.replaceState({}, '', url);
+  }, [game.status]);
   const [profileOpen, setProfileOpen] = useState(false);
   const onSignedIn = useCallback((value) => setSession(value), []);
   const onSessionUpdate = useCallback((value) => {

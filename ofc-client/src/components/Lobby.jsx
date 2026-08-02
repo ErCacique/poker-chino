@@ -18,11 +18,19 @@ export function Lobby({ game, name, onChangeName, nameEditable = true }) {
   }
 
   if (lobby?.kind === 'room') {
+    const link = `${window.location.origin}${window.location.pathname}?join=${lobby.code}`;
+    const share = () => {
+      if (navigator.share) navigator.share({ title: 'Pineapple OFC', text: 'Únete a mi mesa', url: link });
+      else navigator.clipboard?.writeText(link);
+    };
     return (
       <section className="panel panel--waiting">
         <h2>Sala creada</h2>
         <p className="code" aria-label={`Código de sala ${lobby.code.split('').join(' ')}`}>{lobby.code}</p>
         <p>Pásalo a quien quieras. Dentro: {lobby.players} de {lobby.seats}.</p>
+        <button type="button" className="btn btn--primary" onClick={share}>
+          {navigator.share ? 'Compartir enlace' : 'Copiar enlace'}
+        </button>
         <button type="button" className="btn btn--ghost" onClick={leave}>Cerrar sala</button>
       </section>
     );
