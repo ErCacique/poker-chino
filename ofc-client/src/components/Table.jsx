@@ -36,6 +36,9 @@ export function TableView({ game }) {
 
   const hand = you.hand ?? [];
   const myTurn = table.activePlayerId === you.id || (you.fantasyland && hand.length > 0);
+  // Fantasyland progresivo: se reparten 14-17 cartas según la mano que lo
+  // ganó, pero el tablero siempre son 13 huecos — lo que cambia es cuánto se
+  // descarta (hand.length - 13), no cuánto se coloca.
   const placeCount = you.fantasyland ? 13 : (table.street === 0 ? 5 : 2);
   const deadline = you.fantasyland ? you.deadline : (myTurn ? table.deadline : null);
   const remaining = useCountdown(deadline, serverNow);

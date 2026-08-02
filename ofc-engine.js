@@ -310,6 +310,21 @@ export function qualifiesForFantasyland(evaluated) {
   return t.category === HAND.TRIPS || (t.category === HAND.PAIR && t.key[1] >= 12);
 }
 
+/**
+ * Fantasyland progresivo: cuántas cartas se reparten según lo que la clasificó
+ * (QQ=14, KK=15, AA=16, trío=17). Se usa tanto para la entrada como para la
+ * permanencia, evaluando la mano que la ganó cada vez.
+ */
+export function fantasylandCardCount(evaluated) {
+  const t = evaluated.top;
+  if (t.category === HAND.TRIPS) return 17;
+  if (t.category === HAND.PAIR) {
+    if (t.key[1] >= 14) return 16; // AA
+    if (t.key[1] >= 13) return 15; // KK
+  }
+  return 14; // QQ o entrada por staysInFantasyland vía medio/abajo
+}
+
 /** Permanencia: trío arriba, full o mejor en el medio, o póker o mejor abajo. */
 export function staysInFantasyland(evaluated) {
   if (evaluated.foul) return false;

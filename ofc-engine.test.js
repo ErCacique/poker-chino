@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HAND, OfcError, createDeck, shuffle, draw, evaluate3, evaluate5, compareHands,
-  evaluateBoard, boardRoyalties, qualifiesForFantasyland, staysInFantasyland,
+  evaluateBoard, boardRoyalties, qualifiesForFantasyland, staysInFantasyland, fantasylandCardCount,
   scorePair, scoreTable, placeCards, createEmptyBoard, cardsNeeded,
 } from './ofc-engine.js';
 
@@ -128,6 +128,16 @@ test('Fantasyland: entrada y permanencia', () => {
     bottom: ['9h', '9d', '9c', '9s', '8d'],
   });
   assert.equal(staysInFantasyland(stay), true, 'trío arriba mantiene Fantasyland');
+});
+
+test('Fantasyland progresivo: QQ=14, KK=15, AA=16, trío=17', () => {
+  const withTop = (top) => evaluateBoard({
+    top, middle: ['2h', '3d', '4c', '5s', '7d'], bottom: ['9h', '9c', '9s', '2s', '3s'],
+  });
+  assert.equal(fantasylandCardCount(withTop(['Qh', 'Qd', '2c'])), 14);
+  assert.equal(fantasylandCardCount(withTop(['Kh', 'Kd', '2c'])), 15);
+  assert.equal(fantasylandCardCount(withTop(['Ah', 'Ad', '2c'])), 16);
+  assert.equal(fantasylandCardCount(withTop(['6h', '6d', '6c'])), 17);
 });
 
 test('puntuación 1-6 con scoop y royalties', () => {

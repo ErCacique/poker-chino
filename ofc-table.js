@@ -14,7 +14,7 @@ import {
   OfcError, ROWS, ROW_SIZE, PINEAPPLE_STREETS, FANTASYLAND_DEAL,
   createDeck, shuffle, draw, parseCard, createEmptyBoard, isBoardComplete,
   freeSlots, placeCards, evaluateBoard, boardRoyalties, scorePair,
-  qualifiesForFantasyland, staysInFantasyland,
+  qualifiesForFantasyland, staysInFantasyland, fantasylandCardCount,
 } from './ofc-engine.js';
 
 export const PHASE = Object.freeze({
@@ -206,7 +206,9 @@ export class Table {
       hand: [],
       discards: [],
       fantasyland: !!p.fantasyland,
+      fantasylandCount: p.fantasylandCount ?? null,
       nextFantasyland: false,
+      nextFantasylandCount: null,
       connected: true,
       disconnectedAt: null,
       forfeited: false,
@@ -283,7 +285,9 @@ export class Table {
         hand: p.hand,
         discards: p.discards,
         fantasyland: p.fantasyland,
+        fantasylandCount: p.fantasylandCount ?? null,
         nextFantasyland: p.nextFantasyland,
+        nextFantasylandCount: p.nextFantasylandCount ?? null,
         connected: p.connected,
         disconnectedAt: p.disconnectedAt,
         forfeited: p.forfeited,
@@ -304,7 +308,9 @@ export class Table {
     }
     const table = new Table({
       id: snapshot.id,
-      players: snapshot.players.map((p) => ({ id: p.id, name: p.name, fantasyland: p.fantasyland })),
+      players: snapshot.players.map((p) => ({
+        id: p.id, name: p.name, fantasyland: p.fantasyland, fantasylandCount: p.fantasylandCount ?? null,
+      })),
       turnMs: snapshot.turnMs,
       fantasylandMs: snapshot.fantasylandMs,
       graceMs: snapshot.graceMs,
@@ -336,6 +342,7 @@ export class Table {
         hand: saved.hand.slice(),
         discards: saved.discards.slice(),
         nextFantasyland: saved.nextFantasyland,
+        nextFantasylandCount: saved.nextFantasylandCount ?? null,
         connected: false,
         disconnectedAt: saved.disconnectedAt ?? snapshot.savedAt,
         forfeited: saved.forfeited,
@@ -371,7 +378,7 @@ export class Table {
     // Los jugadores en Fantasyland reciben las 14 cartas de golpe y juegan en
     // paralelo: no participan en el turno rotatorio.
     for (const p of this.players.filter((x) => x.fantasyland)) {
-      p.hand = draw(this.deck, FANTASYLAND_DEAL.deal);
+      p.hand = draw(this.deck, p.fantasylandCount ?? FANTASYLAND_DEAL.deal);
       p.deadline = now + this.fantasylandMs;
     }
 
@@ -388,7 +395,9 @@ export class Table {
     }
     for (const p of this.players) {
       p.fantasyland = p.nextFantasyland;
+      p.fantasylandCount = p.nextFantasylandCount;
       p.nextFantasyland = false;
+      p.nextFantasylandCount = null;
     }
     return this.startHand(now);
   }
@@ -411,7 +420,9 @@ export class Table {
     const placements = action?.placements ?? [];
     const discards = action?.discards ?? [];
     const expected = player.fantasyland
-      ? { place: FANTASYLAND_DEAL.place, discard: FANTASYLAND_DEAL.discard }
+      // El tablero siempre son 13 huecos; lo progresivo es cuánto se descarta:
+      // 1 con QQ, 2 con KK, 3 con AA, 4 con trío.
+      ? { place: FANTASYLAND_DEAL.place, discard: (player.fantasylandCount ?? FANTASYLAND_DEAL.deal) - FANTASYLAND_DEAL.place }
       : PINEAPPLE_STREETS[this.street];
 
     if (!player.fantasyland && this.activePlayerId !== playerId) {
@@ -643,6 +654,7 @@ export class Table {
       p.nextFantasyland = ev.foul
         ? false
         : (p.fantasyland ? staysInFantasyland(ev) : qualifiesForFantasyland(ev));
+      p.nextFantasylandCount = p.nextFantasyland ? fantasylandCardCount(ev) : null;
     });
 
     this.phase = PHASE.SHOWDOWN;

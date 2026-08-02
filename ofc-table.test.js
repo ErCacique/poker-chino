@@ -204,6 +204,20 @@ test('Fantasyland: 14 cartas de golpe, tablero oculto hasta el showdown', () => 
   assert.equal(table.getStateFor('b').players[0].board.bottom.length, 5, 'se revela al final');
 });
 
+test('Fantasyland progresivo: KK reparte 15 y exige descartar 2', () => {
+  const table = makeTable({
+    players: [{ id: 'a', name: 'Ana', fantasyland: true, fantasylandCount: 15 }, { id: 'b', name: 'Bruno' }],
+  });
+  table.startHand(T0);
+  assert.equal(table.getStateFor('a').players[0].hand.length, 15);
+
+  const hand = table.getStateFor('a').players[0].hand;
+  const { placements, discards } = autoPlace(table.players[0].board, hand, 13, rng0);
+  assert.equal(placements.length, 13);
+  assert.equal(discards.length, 2);
+  table.place('a', { placements, discards }, T0); // no debe lanzar por WRONG_COUNT
+});
+
 test('encadenar manos arrastra el Fantasyland ganado', () => {
   const table = makeTable();
   table.startHand(T0);
